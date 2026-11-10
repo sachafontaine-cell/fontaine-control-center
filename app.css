@@ -212,7 +212,7 @@ a { text-decoration: none; }
   .prow { min-height: 44px; display: flex; align-items: center; gap: 12px; font-size: 15px; }
   .prow .pt { width: 64px; font-weight: 600; }
   .pday { font-size: 13px; font-weight: 700; color: var(--muted); margin-top: 6px; }
-  .pnav { position: fixed; left: 0; right: 0; bottom: 0; height: 70px; display: grid; grid-template-columns: repeat(3, 1fr); background: #12161C; border-top: 1px solid #1F2731; }
+  .pnav { position: fixed; left: 0; right: 0; bottom: 0; height: 70px; display: grid; grid-template-columns: repeat(4, 1fr); background: #12161C; border-top: 1px solid #1F2731; }
   .pnav a { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; font-size: 12px; font-weight: 600; color: var(--muted); }
   .pnav a.on { color: var(--gold); }
   .top { height: auto; flex-wrap: wrap; gap: 10px; }

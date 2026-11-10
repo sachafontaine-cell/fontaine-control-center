@@ -2,7 +2,7 @@
  * Snappy by design: the last data is saved on the tablet and drawn instantly; Google is only
  * asked in the background, and every tap changes the screen first and saves afterwards. */
 'use strict';
-const VERSION = '0.1.7';
+const VERSION = '0.1.8';
 
 // ---------------------------------------------------------------- config & storage
 const qs = new URLSearchParams(location.search);
@@ -60,6 +60,7 @@ const I = {
   cal: '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="5" width="17" height="15" rx="2"/><path d="M3.5 10h17M8 3v4M16 3v4"/></svg>',
   food: '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M7 3v18M5 3v5a2 2 0 0 0 4 0V3M17 21V3c-2 1-3 3.5-3 6.5 0 1.5 1 2.5 3 2.5"/></svg>',
   people: '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3.2"/><path d="M3 19c0-3.3 2.7-5.5 6-5.5s6 2.2 6 5.5M16 4.8a3 3 0 0 1 0 6M18 13.8c1.8.6 3 2.4 3 4.7"/></svg>',
+  cart: '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 4h2.5l2.2 11h10.6l2-8H6.4"/><circle cx="9.5" cy="19" r="1.4"/><circle cx="17" cy="19" r="1.4"/></svg>',
   home: '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 11l8-7 8 7v9H4z"/></svg>',
   clock: '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#9AA7B4" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>',
   car: '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#FFB27A" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 16V11l2-5h10l2 5v5M5 16h14M5 16v2M19 16v2"/></svg>',
@@ -512,6 +513,10 @@ const MODALS = {
 function openModal(m, ttl) { modal = m; clearTimeout(modalTimer); if (ttl) modalTimer = setTimeout(() => { modal = null; render(); }, ttl); render(); }
 
 // ---------------------------------------------------------------- phone (parents)
+// Cozi: opens the Cozi app on Android, the Cozi website elsewhere (or if the app isn't installed).
+const COZI = () => /Android/i.test(navigator.userAgent)
+  ? 'intent://#Intent;action=android.intent.action.MAIN;category=android.intent.category.LAUNCHER;package=com.cozi.androidfree;S.browser_fallback_url=https%3A%2F%2Fmy.cozi.com%2F;end'
+  : 'https://my.cozi.com/';
 // The phone asks once "Papa or Maman?" and remembers it (tap the name to change).
 let ME = store.get('me', null), phoneTo = 'Tous';
 function phoneWho() {
@@ -539,7 +544,7 @@ function phoneHome() {
     <section class="card panel"><a href="#repas" style="display:flex;flex-direction:column;gap:4px"><span class="label">Ce soir${m ? ' · ' + esc(m.cook) : ''}</span><span style="font-size:17px;font-weight:700">${m && m.dish ? esc(m.dish) : 'À choisir'} ${m && m.salade ? '<span class="tag">+ salade</span>' : ''}</span></a>
       <a href="#votes" class="prow" style="justify-content:space-between;border-top:1px solid #263040;padding-top:8px"><span>Votes · ${voted ? 'vous avez voté' : '<span style="color:var(--gold)">pas encore voté</span>'}</span><span class="hint">${S.vote ? DOW[new Date(S.vote.closes).getDay()] + ' ' + hm(S.vote.closes) : ''} ›</span></a></section>
     <section class="card panel">${days || '<div class="none">Rien cette semaine</div>'}</section>
-    <nav class="pnav"><a class="on" href="#">${I.home}Accueil</a><a href="#repas">${I.food}Repas</a><a href="#cal">${I.cal}Calendrier</a></nav>
+    <nav class="pnav"><a class="on" href="#">${I.home}Accueil</a><a href="#repas">${I.food}Repas</a><a href="#cal">${I.cal}Calendrier</a><a href="${COZI()}">${I.cart}Courses</a></nav>
   </div>`;
 }
 
