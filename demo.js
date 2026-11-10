@@ -54,7 +54,8 @@ window.FCC_DEMO = function () {
       ],
       votes: { 'Thai Green Curry': ['M', 'Ma'], 'Shrimp Tacos': ['F'], 'Chicken Satay Bake': ['F', 'M'], 'Chili (Instant Pot)': ['Pa'], 'Couscous Royale': ['Ma'], 'Homemade Pizza (Toppings Guide)': ['M', 'Pa'], 'Breakfast Burritos': ['F'] },
     },
-    recipes: ['Ancho Chicken Salad', 'Beef Shawarma Wrap', 'Boeuf Bourguignon', 'Butter Chicken (Instant Pot)', 'Chili (Instant Pot)', 'Couscous Royale', 'Hamburgers', 'Kafta', 'Salmon Fried Rice', 'Shrimp Tacos', 'Steak Fajitas', 'Thai Green Curry'],
+    recipes: [['Ancho Chicken Salad', 'Poulet', 3], ['Beef Shawarma Wrap', 'Bœuf', 20], ['Boeuf Bourguignon', 'Bœuf', 45], ['Butter Chicken (Instant Pot)', 'Poulet', 12], ['Chili (Instant Pot)', 'Bœuf', 0], ['Couscous Royale', 'Autre', 60], ['Frittatas', 'Sans viande', 0, 1], ['Homemade Pizza (Toppings Guide)', 'Autre', 9, 1], ['Kafta', 'Bœuf', 30], ['Salmon Fried Rice', 'Poisson', 7], ['Shrimp Tacos', 'Poisson', 0, 1], ['Thai Green Curry', 'Poulet', 25]]
+      .map(([t, prot, a, kid]) => ({ t, prot, kid: !!kid, salade: false, last: a ? ymd(day(-a)) : '', n: a ? 1 + (a % 4) : 0 })),
     rules: [
       { t: 'On parle avec respect', d: "Pas de cris, pas d'insultes." },
       { t: 'On aime soi-même et les autres', d: 'Encouragements, entraide, gentillesse.' },

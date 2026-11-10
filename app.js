@@ -2,7 +2,7 @@
  * Snappy by design: the last data is saved on the tablet and drawn instantly; Google is only
  * asked in the background, and every tap changes the screen first and saves afterwards. */
 'use strict';
-const VERSION = '0.1.10';
+const VERSION = '0.1.11';
 
 // ---------------------------------------------------------------- config & storage
 const qs = new URLSearchParams(location.search);
@@ -152,23 +152,57 @@ addEventListener('pagehide', () => { if (saveTimer && !DEMO) { clearTimeout(save
 function act(a) { if (APPLY[a.a]) APPLY[a.a](a); send(a); render(); if (!DEMO) saveSoon(); }
 
 // ---------------------------------------------------------------- weather (Open-Meteo, free, no key)
-let WX = store.get('wx', null);
+let WX = store.get('wx2', null);
 async function weather() {
   if (!S || !S.weather) return;
   if (WX && Date.now() - WX.at < 3600000) return;
   try {
     const all = await Promise.all(S.weather.map(async (w) => {
-      const u = `https://api.open-meteo.com/v1/forecast?latitude=${w.lat}&longitude=${w.lon}&hourly=temperature_2m,weather_code&timezone=America%2FLos_Angeles&forecast_days=2`;
+      const u = `https://api.open-meteo.com/v1/forecast?latitude=${w.lat}&longitude=${w.lon}&hourly=temperature_2m,apparent_temperature,precipitation_probability,weather_code,uv_index,wind_speed_10m&timezone=America%2FLos_Angeles&forecast_days=2`;
       const j = await (await fetch(u)).json();
       return { who: w.who, label: w.label, h: j.hourly };
     }));
-    WX = { at: Date.now(), list: all }; store.set('wx', WX);
+    WX = { at: Date.now(), list: all }; store.set('wx2', WX);
     if (!busy()) render();
   } catch { /* keep last */ }
 }
 function wxFor(w, dayKey) {
   const at = (hh) => { const i = w.h.time.indexOf(`${dayKey}T${hh}:00`); return i < 0 ? null : { t: Math.round(w.h.temperature_2m[i]), c: w.h.weather_code[i] }; };
   return { a: at('08'), b: at('15') };
+}
+// What to bring: looks at school hours (school days) and the child's own events that day.
+const RAINY = (c) => c != null && ((c >= 51 && c <= 67) || (c >= 80 && c <= 82) || c >= 95);
+function advice(w, key) {
+  const h = w.h, kid = w.who, d = parse(key), items = itemsFor(key);
+  const off = items.some((e) => e.school || e.hol || (e.sd && KEYWORDS_OFF.test(e.t)));
+  const wins = [];
+  if (d.getDay() >= 1 && d.getDay() <= 5 && !off) wins.push({ a: 8, b: 15, school: true });
+  items.filter((e) => e.s && e.e && e.who === kid).forEach((e) => {
+    const a = new Date(e.s).getHours(), b = Math.max(a + 1, new Date(e.e).getHours() + (new Date(e.e).getMinutes() ? 1 : 0));
+    if (a >= 6 && a <= 21) wins.push({ a, b, at: e.s });
+  });
+  if (!wins.length) wins.push({ a: 9, b: 18 });
+  const hour = (hh) => { const i = h.time.indexOf(`${key}T${pad(hh)}:00`); return i < 0 ? null : { f: (h.apparent_temperature || h.temperature_2m)[i], p: (h.precipitation_probability || [])[i] || 0, c: h.weather_code[i], uv: (h.uv_index || [])[i] || 0, ws: (h.wind_speed_10m || [])[i] || 0 }; };
+  const tips = {}; // tip -> windows that need it
+  const add = (k, win, hh) => (tips[k] = tips[k] || []).push({ win, hh });
+  wins.forEach((win) => {
+    for (let hh = win.a; hh < win.b; hh++) {
+      const x = hour(hh); if (!x) continue;
+      if (x.p >= 40 || RAINY(x.c)) add('rain', win, hh);
+      if (x.f <= 10) add('coat', win, hh); else if (x.f <= 16) add('pull', win, hh);
+      if (x.uv >= 7) add('sun', win, hh);
+      if (x.f >= 29) add('hot', win, hh);
+      if (x.ws >= 35) add('wind', win, hh);
+    }
+  });
+  if (tips.coat) delete tips.pull;
+  const when = (list) => {
+    if (list.every((t) => t.win.school && t.hh < 10)) return ' le matin';
+    if (list.every((t) => !t.win.school && t.win.at)) return ` à ${hm(list[0].win.at)}`;
+    return '';
+  };
+  const NAMES = { rain: '☂️ Parapluie', coat: '🧥 Manteau', pull: '🧶 Pull', sun: '🧴 Crème solaire', hot: '🧢 Casquette + gourde', wind: '🌬️ Coupe-vent' };
+  return ['rain', 'coat', 'pull', 'sun', 'hot', 'wind'].filter((k) => tips[k]).slice(0, 2).map((k) => NAMES[k] + when(tips[k])).join(' · ');
 }
 const COND = (c) => c == null ? ['', 'cloud'] : c === 0 ? ['Ensoleillé', 'sun'] : c <= 2 ? ['Quelques nuages', 'part'] : c === 3 ? ['Nuageux', 'cloud'] : c <= 48 ? ['Brouillard', 'cloud'] : c <= 67 || (c >= 80 && c <= 82) ? ['Pluie', 'rain'] : c <= 77 ? ['Neige', 'cloud'] : ['Orages', 'rain'];
 const WXI = {
@@ -248,14 +282,14 @@ function dayCell(d, now, opts) {
 function fitDays() {
   if (PHONE()) return;
   const cut = [];
-  document.querySelectorAll('.day:not([data-fit])').forEach((d) => { // read pass (one layout)
+  document.querySelectorAll('.dcont:not([data-fit])').forEach((d) => { // read pass (one layout)
     d.dataset.fit = 1;
     const items = [...d.querySelectorAll('.chip, .rec')], total = +d.dataset.n || items.length;
     if (d.scrollHeight <= d.clientHeight + 1 && total === items.length) return;
-    const room = d.clientHeight - 8 - 42; // bottom padding + the "+N" line
+    const room = d.clientHeight - 8 - 40; // bottom padding + the "+N" line
     let keep = 0;
     while (keep < items.length && items[keep].offsetTop + items[keep].offsetHeight <= room) keep++;
-    cut.push([d, items, Math.max(1, keep), total]);
+    cut.push([d, items, keep, total]);
   });
   cut.forEach(([d, items, keep, total]) => { // write pass
     items.slice(keep).forEach((x) => x.remove());
@@ -264,10 +298,44 @@ function fitDays() {
     d.appendChild(more);
   });
 }
+const MULTI = (e) => e.sd && Math.round((parse(e.ed) - parse(e.sd)) / 864e5) > 1;
 function weekRow(start, now, opts) {
+  if (PHONE()) {
+    let h = '';
+    for (let i = 0; i < 7; i++) h += dayCell(addDays(start, i), now, { ...opts, weekStart: ymd(start) });
+    return `<div class="week">${h}</div>`;
+  }
+  const s0 = parse(ymd(start)), todayKey = ymd(new Date(now)), tomorrowKey = ymd(addDays(new Date(now), 1));
+  const keys = [0, 1, 2, 3, 4, 5, 6].map((i) => ymd(addDays(s0, i)));
+  const lists = keys.map(itemsFor);
+  const col = (k) => Math.round((parse(k) - s0) / 864e5);
+  // Bars: one per multi-day event, in up to 3 lanes; extra ones fall back to a box on their first day.
+  const seen = new Set(), bars = [];
+  lists.forEach((l) => l.forEach((e) => { if (MULTI(e) && !seen.has(e.id)) { seen.add(e.id); bars.push({ e, a: Math.max(0, col(e.sd)), b: Math.min(7, col(e.ed)) }); } }));
+  bars.sort((x, y) => x.a - y.a || (y.b - y.a) - (x.b - x.a));
+  const lanes = [], spill = new Set();
+  bars.forEach((x) => { let i = lanes.findIndex((end) => end <= x.a); if (i < 0 && lanes.length < 3) { i = lanes.length; lanes.push(0); } if (i < 0) { spill.add(x.e.id); x.lane = -1; return; } lanes[i] = x.b; x.lane = i; });
+  const L = lanes.length;
   let h = '';
-  for (let i = 0; i < 7; i++) h += dayCell(addDays(start, i), now, { ...opts, weekStart: ymd(start) });
-  return `<div class="week">${h}</div>`;
+  keys.forEach((key, i) => {
+    const d = parse(key), cls = ['day'];
+    if (key < todayKey) cls.push('past'); else if (d.getDay() === 0 || d.getDay() === 6) cls.push('wknd');
+    if (key === opts.focus) cls.push('focus');
+    let label = `${DOW[d.getDay()]} ${d.getDate()}${d.getDate() === 1 ? ' ' + MON[d.getMonth()] : ''}`;
+    if (key === todayKey) label += ' · auj.'; else if (key === tomorrowKey && opts.focus === key) label += ' · demain';
+    h += `<div class="${cls.join(' ')}" style="grid-column:${i + 1};grid-row:1/-1"><span class="dl">${label}</span></div>`;
+  });
+  bars.filter((x) => x.lane >= 0).forEach(({ e, a, b, lane }) => {
+    const p = P[e.who] || P.Fam;
+    const more = parse(e.ed) > addDays(s0, 7) ? ` <small>→ ${dayShort(addDays(parse(e.ed), -1))}</small>` : '';
+    const sub = e.school ? ' <small>SDUSD</small>' : e.who !== 'Fam' ? ` <small>${e.who}</small>` : '';
+    h += `<button class="chip bar tap" data-ev="${esc(e.id)}" style="grid-column:${a + 1}/${b + 1};grid-row:${lane + 2};background:${p.bg};color:${p.fg}"><span class="bt">${esc(short(e.t))}</span>${sub}${more}</button>`;
+  });
+  keys.forEach((key, i) => {
+    const list = lists[i].filter((e) => !MULTI(e) || (spill.has(e.id) && (col(e.sd) === i || (i === 0 && col(e.sd) < 0))));
+    h += `<div class="dcont" data-key="${key}" data-n="${list.length}" style="grid-column:${i + 1};grid-row:${L + 2}">${list.slice(0, 7).map((e) => evHtml(e, key, now)).join('')}</div>`;
+  });
+  return `<div class="week wgrid" style="grid-template-rows:24px ${'auto '.repeat(L)}minmax(0,1fr)">${h}</div>`;
 }
 
 // ---------------------------------------------------------------- screen schedule
@@ -338,6 +406,7 @@ function home() {
   <header class="head">
     <div class="clock"><div class="t num">${d.getHours()}${NB}h${NB}${pad(d.getMinutes())}</div>
       <div>${evening ? '<div class="tag">VUE DE DEMAIN</div>' : ''}<div class="d1">${DOWL[focusDay.getDay()]}</div><div class="d2">${focusDay.getDate()} ${MONL[focusDay.getMonth()]}</div></div></div>
+    <div class="legend">${['M', 'F', 'Pa', 'Ma', 'Fam'].map((k) => `<span><span class="dot" style="background:${P[k].c}"></span>${P[k].n}</span>`).join('')}</div>
     <div class="wx">${wxCards(focus, evening)}</div>
   </header>
   <section class="cal" aria-label="Calendrier, 2 semaines">
@@ -357,7 +426,8 @@ function wxCards(key, tomorrow) {
     const x = wxFor(w, key);
     if (!x.a || !x.b) return '';
     const [label, icon] = COND(Math.max(x.a.c, x.b.c));
-    return `<div class="wxc panel">${WXI[icon]}<div><div class="who"><span class="dot" style="background:${P[w.who].c}"></span>${P[w.who].n} · ${tomorrow ? 'demain' : esc(w.label.replace(/ Elementary| Academy/, ''))}</div><div class="tt num">${x.a.t}° <span style="color:var(--muted);font-weight:400">→</span> ${x.b.t}°</div><div class="cond">${label} · 8${NB}h → 15${NB}h</div></div></div>`;
+    const tip = advice(w, key);
+    return `<div class="wxc panel">${WXI[icon]}<div><div class="who"><span class="dot" style="background:${P[w.who].c}"></span>${P[w.who].n} · ${tomorrow ? 'demain' : esc(w.label.replace(/ Elementary| Academy/, ''))}</div><div class="tt num">${x.a.t}° <span style="color:var(--muted);font-weight:400">→</span> ${x.b.t}° <span class="cl">${label}</span></div><div class="cond${tip ? ' tip' : ''}">${tip || `8${NB}h → 15${NB}h`}</div></div></div>`;
   }).join('');
 }
 function tasksTile() {
@@ -567,12 +637,41 @@ const MODALS = {
     return `<div class="modal" data-close><section class="det panel dayall"><div class="dh"><span style="font-size:24px;font-weight:700">${DOWL[d.getDay()]} ${d.getDate()} ${MONL[d.getMonth()]}</span><button class="btn tap" data-close>${I.x}Fermer</button></div><div class="dlist">${list}</div></section></div>`;
   },
   dish() {
-    const list = (S.recipes || []).map((r) => `<button class="tap" data-pick="${esc(r)}">${esc(r)}</button>`).join('');
     const d = parse(modal.date);
-    return `<div class="picker"><section class="box panel"><div style="display:flex;align-items:center;justify-content:space-between"><div><div style="font-size:24px;font-weight:700">${DOWL[d.getDay()]} ${d.getDate()} · ${esc(modal.cook)}</div><div class="hint">Choisissez le plat</div></div><button class="btn tap" data-close>${I.x}Fermer</button></div><div class="list">${list}</div></section></div>`;
+    const prots = [...new Set(RCP().map((r) => r.prot).filter(Boolean))];
+    const tags = [['', 'Tous'], ...['Poulet', 'Bœuf', 'Porc', 'Agneau', 'Poisson', 'Dinde', 'Sans viande'].filter((x) => prots.includes(x)).map((x) => [x, x]), ['ip', 'Instant Pot'], ['kid', 'Facile enfants']];
+    const chips = tags.map(([k, n]) => `<button class="pc tap${pick.tag === k ? ' on' : ''}" data-ptag="${esc(k)}">${n}</button>`).join('');
+    const sorts = [['old', 'Pas fait depuis longtemps'], ['az', 'A–Z'], ['fav', 'Le plus fait']].map(([k, n]) => `<button class="tap${pick.sort === k ? ' on' : ''}" data-psort="${k}">${n}</button>`).join('');
+    return `<div class="picker"><section class="box panel"><div style="display:flex;align-items:center;justify-content:space-between"><div><div style="font-size:24px;font-weight:700">${DOWL[d.getDay()]} ${d.getDate()} · ${esc(modal.cook)}</div><div class="hint">Choisissez le plat</div></div><button class="btn tap" data-close>${I.x}Fermer</button></div>
+      <div class="ptools"><input id="pq" type="search" placeholder="Chercher un plat…" autocomplete="off" value="${esc(pick.q)}"><button class="btn tap" data-prand>🎲 Au hasard</button></div>
+      <div class="pchips">${chips}</div><div class="psort"><span class="hint">Trier :</span>${sorts}</div>
+      <div class="list">${pickList()}</div></section></div>`;
   },
 };
 function renderModal() { $('#modal').innerHTML = modal ? MODALS[modal.kind]() : ''; }
+// ---------------------------------------------------------------- dish picker: search, filter, sort
+const RCP = () => (S.recipes || []).map((r) => (typeof r === 'string' ? { t: r } : r));
+const fold = (x) => String(x).normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+const IPOT = /instant pot|pressure/i;
+let pick = { q: '', tag: '', sort: 'old', hi: '' };
+const ago = (k) => (k ? Math.round((parse(ymd(new Date())) - parse(k)) / 864e5) : null);
+function pickFiltered() {
+  const q = fold(pick.q.trim());
+  return RCP().filter((r) => (!q || fold(r.t).includes(q) || fold(r.prot || '').includes(q))
+    && (!pick.tag || (pick.tag === 'ip' ? IPOT.test(r.t) : pick.tag === 'kid' ? r.kid : r.prot === pick.tag)));
+}
+function pickList() {
+  const l = pickFiltered(), A = (r) => (r.last ? ago(r.last) : 99999);
+  l.sort(pick.sort === 'az' ? (a, b) => a.t.localeCompare(b.t) : pick.sort === 'fav' ? (a, b) => (b.n || 0) - (a.n || 0) || a.t.localeCompare(b.t) : (a, b) => A(b) - A(a) || a.t.localeCompare(b.t));
+  if (!l.length) return '<div class="none">Aucun plat — essayez un autre filtre</div>';
+  return l.map((r) => {
+    const a = r.last ? ago(r.last) : null;
+    const when = r.last === undefined ? '' : a == null ? 'jamais fait' : a === 0 ? "fait aujourd'hui" : `fait il y a ${a}${NB}j`;
+    const meta = [r.prot, when, r.salade ? '+ salade' : ''].filter(Boolean).join(' · ');
+    return `<button class="tap${pick.hi === r.t ? ' hi' : ''}${a != null && a <= 10 ? ' recent' : ''}" data-pick="${esc(r.t)}"><span>${esc(r.t)}</span>${meta ? `<small>${esc(meta)}</small>` : ''}</button>`;
+  }).join('');
+}
+document.addEventListener('input', (e) => { if (e.target.id === 'pq') { pick.q = e.target.value; pick.hi = ''; const l = $('.picker .list'); if (l) l.innerHTML = pickList(); } });
 function openModal(m, ttl) { modal = m; clearTimeout(modalTimer); if (ttl) modalTimer = setTimeout(() => { modal = null; renderModal(); }, ttl); renderModal(); }
 
 // ---------------------------------------------------------------- phone (parents)
@@ -614,7 +713,7 @@ function phoneHome() {
 
 // ---------------------------------------------------------------- taps (one listener for everything)
 document.addEventListener('click', (ev) => {
-  const t = ev.target.closest('[data-day],[data-task],[data-seen],[data-ev],[data-close],[data-dish],[data-pick],[data-voter],[data-vote],[data-update],[data-me],[data-switch],[data-to],[data-send],[data-retry]');
+  const t = ev.target.closest('[data-ptag],[data-psort],[data-prand],[data-day],[data-task],[data-seen],[data-ev],[data-close],[data-dish],[data-pick],[data-voter],[data-vote],[data-update],[data-me],[data-switch],[data-to],[data-send],[data-retry]');
   if (!t) return;
   const ds = t.dataset;
   if (ds.day) { openModal({ kind: 'day', key: ds.day }, 30000); return; }
@@ -622,7 +721,10 @@ document.addEventListener('click', (ev) => {
   else if (ds.seen) act({ a: 'seen', id: ds.seen });
   else if (ds.ev) { const e = S.events.find((x) => x.id === ds.ev) || itemsFor(ds.ev.slice(3)).find((x) => x.id === ds.ev); if (e) openModal({ kind: 'ev', e }, PHONE() ? 0 : 20000); }
   else if ('close' in ds) { if (ev.target.closest('.det') && !t.matches('button')) return; modal = null; renderModal(); }
-  else if (ds.dish) { const [date, cook] = ds.dish.split('|'); openModal({ kind: 'dish', date, cook }); }
+  else if (ds.dish) { const [date, cook] = ds.dish.split('|'); pick = { q: '', tag: ['M', 'F'].includes(COOK[cook]) ? 'kid' : '', sort: 'old', hi: '' }; openModal({ kind: 'dish', date, cook }); }
+  else if ('ptag' in ds) { pick.tag = pick.tag === ds.ptag ? '' : ds.ptag; pick.hi = ''; renderModal(); }
+  else if (ds.psort) { pick.sort = ds.psort; renderModal(); }
+  else if ('prand' in ds) { const l = pickFiltered(); if (l.length) { pick.hi = l[Math.floor(Math.random() * l.length)].t; renderModal(); const el = $('.picker .hi'); if (el) el.scrollIntoView({ block: 'center' }); } }
   else if (ds.pick) { act({ a: 'dish', date: modal.date, cook: modal.cook, dish: ds.pick }); modal = null; render(); }
   else if (ds.voter) { voter = ds.voter; flash = ''; clearTimeout(voterTimer); voterTimer = setTimeout(() => { voter = null; render(); }, 120000); render(); }
   else if (ds.vote) {
