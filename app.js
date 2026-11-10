@@ -2,7 +2,7 @@
  * Snappy by design: the last data is saved on the tablet and drawn instantly; Google is only
  * asked in the background, and every tap changes the screen first and saves afterwards. */
 'use strict';
-const VERSION = '0.1.11';
+const VERSION = '0.1.12';
 
 // ---------------------------------------------------------------- config & storage
 const qs = new URLSearchParams(location.search);
@@ -281,6 +281,10 @@ function dayCell(d, now, opts) {
 // After drawing: a day with more than fits shows "+N", which opens the whole day.
 function fitDays() {
   if (PHONE()) return;
+  // Countdowns only use space the chores and messages don't need.
+  const sp = $('.soonp'), tk = $('.tasks');
+  if (sp && (sp.clientHeight < 110 || (tk && tk.scrollHeight > tk.clientHeight + 1))) sp.remove();
+  else if (sp) { const items = [...sp.querySelectorAll('.sn')]; while (items.length > 1 && sp.scrollHeight > sp.clientHeight + 1) items.pop().remove(); }
   const cut = [];
   document.querySelectorAll('.dcont:not([data-fit])').forEach((d) => { // read pass (one layout)
     d.dataset.fit = 1;
@@ -416,6 +420,7 @@ function home() {
   <aside class="side">
     ${tasksTile()}
     ${messagesTile()}
+    ${soonTile()}
   </aside>
   ${footer()}
 </div>`;
@@ -464,20 +469,39 @@ function footer() {
 }
 const topBar = (title, sub, right = '') => `<header class="top"><a class="btn back tap" href="#">${I.back}Accueil</a><div><h1>${title}</h1>${sub ? `<div class="sub">${sub}</div>` : ''}</div>${right}</header>`;
 
+// ---------------------------------------------------------------- countdowns ("Bientôt")
+// The next big one-off things: whole-day events first (trips, holidays, days off), then other one-offs.
+function soonList(from, max) {
+  const big = [], other = [], seen = new Set(), end = addDays(from, 120);
+  for (let x = new Date(from); x < end && big.length < max; x = addDays(x, 1)) {
+    const k = ymd(x);
+    for (const e of itemsFor(k)) {
+      if (e.rec || seen.has(e.t) || (e.sd && e.sd !== k && ymd(from) !== k)) continue;
+      seen.add(e.t);
+      (e.sd || /anniv|birthday|fête/i.test(e.t) ? big : other).push({ e, day: new Date(x) });
+    }
+  }
+  return big.concat(other).sort((a, b) => a.day - b.day).slice(0, max);
+}
+const countdown = (day) => { const n = Math.round((day - parse(ymd(new Date()))) / 864e5); return n <= 0 ? "Aujourd'hui" : n === 1 ? 'Demain' : `Dans ${n}${NB}jours`; };
+function soonTile() {
+  const from = addDays(monday(new Date()), 14); // after the two weeks shown on the calendar
+  const list = soonList(from, 4);
+  if (!list.length) return '';
+  return `<section class="soonp panel"><div class="label">Bientôt</div>${list.map(({ e, day }) => {
+    const n = Math.round((day - parse(ymd(new Date()))) / 864e5);
+    const p = P[e.who] || P.Fam;
+    return `<button class="sn tap" data-ev="${esc(e.id)}"><span class="snn num" style="color:${p.c}">${n}<small>${NB}j</small></span><span class="snt"><span>${esc(short(e.t))}</span><small>${DOW[day.getDay()]} ${dayShort(day)}</small></span></button>`;
+  }).join('')}</section>`;
+}
+
 // ---------------------------------------------------------------- calendrier page
 function calPage() {
   const now = Date.now(), d = new Date(now);
   const start = addDays(monday(d), PHONE() ? 0 : 14); // the home screen already shows the first two weeks
   const end = addDays(monday(d), 7 * 14);
-  // Bientôt: the next big one-off things after the home screen's two weeks.
-  const seen = new Set(), soon = [];
-  for (let x = PHONE() ? addDays(new Date(ymd(d) + 'T00:00'), 7) : new Date(start); x < end && soon.length < 3; x = addDays(x, 1)) {
-    for (const e of itemsFor(ymd(x))) {
-      if (e.rec || seen.has(e.t) || (e.sd && e.sd !== ymd(x))) continue;
-      seen.add(e.t); soon.push({ e, day: new Date(x) }); if (soon.length === 3) break;
-    }
-  }
-  const countdown = (day) => { const n = Math.round((day - new Date(ymd(d) + 'T00:00')) / 86400000); return n <= 0 ? "Aujourd'hui" : n === 1 ? 'Demain' : n < 14 ? `Dans ${n} jours` : `Dans ${Math.round(n / 7)} sem.`; };
+  // Phone only: the countdowns (on the tablet they are on the home screen).
+  const soon = PHONE() ? soonList(addDays(parse(ymd(d)), 7), 3) : [];
   const soonHtml = soon.map((s) => `<span><span class="when">${countdown(s.day)}</span> ${esc(short(s.e.t))}</span>`).join('<span class="sep">·</span>');
   const wk = (w) => `<div class="wk"><div class="wl">${dayShort(w)} – ${dayShort(addDays(w, 6))}</div>${weekRow(w, now, { focus: '' })}</div>`;
   let weeks = '', n = 0;
