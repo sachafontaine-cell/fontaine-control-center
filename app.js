@@ -2,7 +2,7 @@
  * Snappy by design: the last data is saved on the tablet and drawn instantly; Google is only
  * asked in the background, and every tap changes the screen first and saves afterwards. */
 'use strict';
-const VERSION = '0.1.12';
+const VERSION = '0.2.0';
 
 // ---------------------------------------------------------------- config & storage
 const qs = new URLSearchParams(location.search);
@@ -58,7 +58,8 @@ const pad = (n) => String(n).padStart(2, '0');
 const ymd = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 const parse = (s) => { const [y, m, d] = s.split('-').map(Number); return new Date(y, m - 1, d); };
 const addDays = (d, n) => { const x = new Date(d); x.setDate(x.getDate() + n); return x; };
-const monday = (d) => { const x = new Date(d); x.setHours(0, 0, 0, 0); x.setDate(x.getDate() - ((x.getDay() + 6) % 7)); return x; };
+// Weeks start on Sunday, as in the US.
+const sunday = (d) => { const x = new Date(d); x.setHours(0, 0, 0, 0); x.setDate(x.getDate() - x.getDay()); return x; };
 const hm = (ms) => { const d = new Date(ms); return d.getMinutes() ? `${d.getHours()}${NB}h${NB}${pad(d.getMinutes())}` : `${d.getHours()}${NB}h`; };
 const DOW = ['dim.', 'lun.', 'mar.', 'mer.', 'jeu.', 'ven.', 'sam.'];
 const DOWL = ['dimanche', 'lundi', 'mardi', 'mercredi', 'jeudi', 'vendredi', 'samedi'];
@@ -79,6 +80,9 @@ const I = {
   clock: '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#9AA7B4" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>',
   car: '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#FFB27A" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 16V11l2-5h10l2 5v5M5 16h14M5 16v2M19 16v2"/></svg>',
   pin: '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#9AA7B4" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s-6.5-5.6-6.5-11a6.5 6.5 0 0 1 13 0c0 5.4-6.5 11-6.5 11z"/><circle cx="12" cy="10" r="2.3"/></svg>',
+  star: '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="M12 3.5l2.6 5.3 5.9.9-4.3 4.1 1 5.8L12 16.9l-5.2 2.7 1-5.8-4.3-4.1 5.9-.9z"/></svg>',
+  search: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="6.5"/><path d="M16 16l4.5 4.5"/></svg>',
+  check2: '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="16" height="16" rx="4"/><path d="M8 12.5l3 3 5-6"/></svg>',
   x: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>',
 };
 const av = (id, size) => `<span class="av" style="background:${P[id].c}${size ? `;width:${size}px;height:${size}px` : ''}">${id === 'Pa' || id === 'Ma' ? id : id}</span>`;
@@ -256,7 +260,7 @@ function evHtml(e, key, now) {
     return `<button class="rec tap${done ? ' done' : ''}" data-ev="${esc(e.id)}"><span><span class="dot" style="background:${p.c}"></span><span class="ct">${ini}${esc(short(e.t))} ${hm(e.s)}</span></span>${pill}</button>`;
   }
   const sub = e.s ? `<small>${ini}${hm(e.s)}</small>` : !e.school && ini ? `<small>${P[e.who].n}</small>` : e.school ? '<small class="school">Calendrier SDUSD</small>' : '';
-  return `<button class="chip tap${done ? ' done' : ''}" style="background:${p.bg};color:${p.fg}" data-ev="${esc(e.id)}"><span class="ct">${esc(short(e.t))}</span>${until}${sub}${pill}</button>`;
+  return `<button class="chip tap${done ? ' done' : ''}" style="background:${p.bg};color:${p.fg};--c:${p.c}" data-ev="${esc(e.id)}"><span class="ct">${esc(short(e.t))}</span>${until}${sub}${pill}</button>`;
 }
 // Short names so a 125px day box stays readable (team-feed prefixes and people's names removed).
 function short(t) {
@@ -266,7 +270,7 @@ function short(t) {
 const dayShort = (d) => `${d.getDate()} ${MON[d.getMonth()]}`;
 function dayCell(d, now, opts) {
   const key = ymd(d), todayKey = ymd(new Date(now));
-  const items = itemsFor(key);
+  const items = viewItems(key, opts);
   const cls = ['day'];
   if (key < todayKey) cls.push('past');
   else if (d.getDay() === 0 || d.getDay() === 6) cls.push('wknd');
@@ -282,9 +286,13 @@ function dayCell(d, now, opts) {
 function fitDays() {
   if (PHONE()) return;
   // Countdowns only use space the chores and messages don't need.
+  // Chores come first: countdowns give up rows (down to one), then disappear, until every chore fits.
   const sp = $('.soonp'), tk = $('.tasks');
-  if (sp && (sp.clientHeight < 110 || (tk && tk.scrollHeight > tk.clientHeight + 1))) sp.remove();
-  else if (sp) { const items = [...sp.querySelectorAll('.sn')]; while (items.length > 1 && sp.scrollHeight > sp.clientHeight + 1) items.pop().remove(); }
+  if (sp) {
+    const items = [...sp.querySelectorAll('.sn')], over = () => tk && tk.scrollHeight > tk.clientHeight + 1;
+    while (items.length > 1 && (over() || sp.scrollHeight > sp.clientHeight + 1)) items.pop().remove();
+    if (over()) sp.remove();
+  }
   const cut = [];
   document.querySelectorAll('.dcont:not([data-fit])').forEach((d) => { // read pass (one layout)
     d.dataset.fit = 1;
@@ -311,7 +319,7 @@ function weekRow(start, now, opts) {
   }
   const s0 = parse(ymd(start)), todayKey = ymd(new Date(now)), tomorrowKey = ymd(addDays(new Date(now), 1));
   const keys = [0, 1, 2, 3, 4, 5, 6].map((i) => ymd(addDays(s0, i)));
-  const lists = keys.map(itemsFor);
+  const lists = keys.map((k) => viewItems(k, opts));
   const col = (k) => Math.round((parse(k) - s0) / 864e5);
   // Bars: one per multi-day event, in up to 3 lanes; extra ones fall back to a box on their first day.
   const seen = new Set(), bars = [];
@@ -333,7 +341,7 @@ function weekRow(start, now, opts) {
     const p = P[e.who] || P.Fam;
     const more = parse(e.ed) > addDays(s0, 7) ? ` <small>→ ${dayShort(addDays(parse(e.ed), -1))}</small>` : '';
     const sub = e.school ? ' <small>SDUSD</small>' : e.who !== 'Fam' ? ` <small>${e.who}</small>` : '';
-    h += `<button class="chip bar tap" data-ev="${esc(e.id)}" style="grid-column:${a + 1}/${b + 1};grid-row:${lane + 2};background:${p.bg};color:${p.fg}"><span class="bt">${esc(short(e.t))}</span>${sub}${more}</button>`;
+    h += `<button class="chip bar tap" data-ev="${esc(e.id)}" style="grid-column:${a + 1}/${b + 1};grid-row:${lane + 2};background:${p.bg};color:${p.fg};--c:${p.c}"><span class="bt">${esc(short(e.t))}</span>${sub}${more}</button>`;
   });
   keys.forEach((key, i) => {
     const list = lists[i].filter((e) => !MULTI(e) || (spill.has(e.id) && (col(e.sd) === i || (i === 0 && col(e.sd) < 0))));
@@ -362,6 +370,7 @@ function applyMode() {
   }
   const n = $('#night');
   if (m === 'day') { n.hidden = true; return; }
+  if (saverOn) hideSaver();
   n.hidden = false;
   if (Date.now() < peekUntil) {
     const d = new Date();
@@ -372,12 +381,34 @@ function applyMode() {
 }
 $('#night').addEventListener('click', () => { peekUntil = Date.now() + 15000; applyMode(); setTimeout(applyMode, 15100); });
 
+// ---------------------------------------------------------------- rule screensaver (wall only)
+// After 40 s without a touch on the home screen, one house rule fills the screen (a new one each
+// time). When someone walks up and the screen wakes, they see it for a few seconds, then home.
+if (!$('#saver')) document.body.insertAdjacentHTML('beforeend', '<div id="saver" hidden></div>');
+let saverOn = false, saverTimer, saverHide, ruleIdx = store.get('ruleIdx', 0);
+function armSaver() {
+  clearTimeout(saverTimer);
+  if (!WALL()) return;
+  saverTimer = setTimeout(showSaver, 40000);
+}
+function showSaver() {
+  const rules = (S && S.rules) || [];
+  if (!rules.length || route !== '' || busy() || mode() !== 'day' || !$('#night').hidden) { armSaver(); return; }
+  const i = ruleIdx % rules.length, r = rules[i];
+  ruleIdx = i + 1; store.set('ruleIdx', ruleIdx);
+  const el = $('#saver');
+  el.innerHTML = `<div class="sv"><div class="label">Règle de la maison · ${i + 1}/${rules.length}</div><div class="svn">${i + 1}</div><div class="svt">${esc(r.t)}</div><div class="svd">${esc(r.d)}</div></div><div class="svf">Touchez pour revenir</div>`;
+  el.hidden = false; saverOn = true;
+}
+function hideSaver() { clearTimeout(saverHide); $('#saver').hidden = true; saverOn = false; armSaver(); }
+$('#saver').addEventListener('click', hideSaver);
+
 // ---------------------------------------------------------------- routing
 const PHONE = () => innerWidth < 760 || (innerHeight < 500 && matchMedia('(pointer: coarse)').matches);
 let route = location.hash.slice(1);
 let modal = null; // {kind, ...}
 function go(r) { if (route === r) { render(); return; } location.hash = r; }
-addEventListener('hashchange', () => { route = location.hash.slice(1); modal = null; voice.reset(); render(); });
+addEventListener('hashchange', () => { route = location.hash.slice(1); modal = null; voice.reset(); if (route !== 'cal') { CF = { q: '', who: '' }; clearTimeout(cfTimer); } render(); });
 const busy = () => !!modal || voice.state === 'rec' || (document.activeElement && document.activeElement.tagName === 'INPUT');
 
 let idleTimer;
@@ -385,6 +416,7 @@ function touched() {
   clearTimeout(idleTimer);
   // Back to the home screen after 90 s without a touch.
   idleTimer = setTimeout(() => { if (WALL() && voice.state !== 'rec') { modal = null; go(''); } }, 90000);
+  if (!saverOn) armSaver();
 }
 addEventListener('pointerdown', touched, { passive: true });
 
@@ -394,7 +426,7 @@ function render() {
   const r = route.split('/')[0];
   const view = { '': PHONE() ? phoneHome : home, cal: calPage, repas: repasPage, votes: votesPage, taches: tachesPage, regles: reglesPage, contacts: contactsPage, voix: voicePage }[r] || home;
   document.documentElement.classList.toggle('ph', PHONE());
-  $('#app').innerHTML = view();
+  $('#app').innerHTML = view() + (PHONE() && ME && r !== 'voix' ? phoneTabs(r) : '');
   renderModal();
   fitDays();
   applyMode();
@@ -404,13 +436,12 @@ function home() {
   const now = Date.now(), d = new Date(now);
   const evening = mins(d) >= 990; // 16:30
   const focusDay = evening ? addDays(d, 1) : d;
-  const wkStart = monday(d);
+  const wkStart = sunday(d);
   const focus = ymd(focusDay);
   return `<div class="page home">
   <header class="head">
     <div class="clock"><div class="t num">${d.getHours()}${NB}h${NB}${pad(d.getMinutes())}</div>
       <div>${evening ? '<div class="tag">VUE DE DEMAIN</div>' : ''}<div class="d1">${DOWL[focusDay.getDay()]}</div><div class="d2">${focusDay.getDate()} ${MONL[focusDay.getMonth()]}</div></div></div>
-    <div class="legend">${['M', 'F', 'Pa', 'Ma', 'Fam'].map((k) => `<span><span class="dot" style="background:${P[k].c}"></span>${P[k].n}</span>`).join('')}</div>
     <div class="wx">${wxCards(focus, evening)}</div>
   </header>
   <section class="cal" aria-label="Calendrier, 2 semaines">
@@ -432,9 +463,11 @@ function wxCards(key, tomorrow) {
     if (!x.a || !x.b) return '';
     const [label, icon] = COND(Math.max(x.a.c, x.b.c));
     const tip = advice(w, key);
-    return `<div class="wxc panel">${WXI[icon]}<div><div class="who"><span class="dot" style="background:${P[w.who].c}"></span>${P[w.who].n} · ${tomorrow ? 'demain' : esc(w.label.replace(/ Elementary| Academy/, ''))}</div><div class="tt num">${x.a.t}° <span style="color:var(--muted);font-weight:400">→</span> ${x.b.t}° <span class="cl">${label}</span></div><div class="cond${tip ? ' tip' : ''}">${tip || `8${NB}h → 15${NB}h`}</div></div></div>`;
+    return `<div class="wxc panel">${WXI[icon]}<div><div class="who"><span class="dot" style="background:${P[w.who].c}"></span>${P[w.who].n} · ${tomorrow ? 'demain' : esc(place(w.label))}</div><div class="tt num">${x.a.t}° <span style="color:var(--muted);font-weight:400">→</span> ${x.b.t}° <span class="cl">${label}</span></div><div class="cond${tip ? ' tip' : ''}">${tip || `8${NB}h → 15${NB}h`}</div></div></div>`;
   }).join('');
 }
+// "Oak Hill Elementary" → "OHES", "The Music Academy" → "Music Academy".
+const place = (l) => String(l || '').replace(/^The\s+/i, '').replace(/^(.+?)\s+Elementary(\s+School)?$/i, (_, n) => n.split(/\s+/).map((w) => w[0]).join('').toUpperCase() + 'ES');
 function tasksTile() {
   const c = S.chores;
   const kid = (who) => {
@@ -454,39 +487,51 @@ function messagesTile() {
   const body = m ? `<div class="msg"><div class="mt"><span class="mf"><span class="dot" style="background:${P[who].c}"></span>${esc(m.from)} · ${hm(m.at)}${m.to && m.to !== 'Tous' ? ' · pour ' + esc(m.to) : ''}</span><span class="tx">${esc(m.text)}</span></div><button class="seen tap" data-seen="${esc(m.id)}">Vu</button></div>` : '<div class="none">Aucun nouveau message</div>';
   return `<section class="msgs panel"><div class="label">Messages${S.messages.length > 1 ? ` · ${S.messages.length}` : ''}</div>${body}<a class="voice tap" href="#voix"><span class="mic">${I.mic()}</span>Message aux parents</a></section>`;
 }
+// The house rules now come up as a screensaver (see "rule screensaver"); the footer keeps the color key.
 function footer() {
-  const rules = S.rules && S.rules.length ? S.rules : [];
-  const rule = rules.length ? rules[Math.floor(Date.now() / 600000) % rules.length] : null;
   return `<footer class="foot">
-    <a class="rule tap" href="#regles"><span class="label">Règle</span>${rule ? `<span>${esc(rule.t)} — ${esc(rule.d)}</span>` : '<span>Règles de la maison</span>'}${I.chev}</a>
+    <div class="legend">${['M', 'F', 'Pa', 'Ma', 'Fam'].map((k) => `<span><span class="dot" style="background:${P[k].c}"></span>${P[k].n}</span>`).join('')}</div>
     <nav class="nav">
       <a class="btn tap" href="#cal">${I.cal}Calendrier</a>
       <a class="btn tap" href="#repas">${I.food}Repas</a>
+      ${coziLink('btn tap')}
+      <a class="btn tap" href="#regles">${I.star}Règles</a>
       <a class="btn tap" href="#contacts">${I.people}Contacts</a>
       <button class="ver tap" data-update>v${VERSION}${DEMO ? ' · démo' : ''} ↻</button>
     </nav>
   </footer>`;
 }
-const topBar = (title, sub, right = '') => `<header class="top"><a class="btn back tap" href="#">${I.back}Accueil</a><div><h1>${title}</h1>${sub ? `<div class="sub">${sub}</div>` : ''}</div>${right}</header>`;
+// On the phone the tab bar replaces the "Accueil" button.
+const topBar = (title, sub, right = '') => `<header class="top">${PHONE() && ME ? '' : `<a class="btn back tap" href="#">${I.back}Accueil</a>`}<div><h1>${title}</h1>${sub ? `<div class="sub">${sub}</div>` : ''}</div>${right}</header>`;
 
 // ---------------------------------------------------------------- countdowns ("Bientôt")
-// The next big one-off things: whole-day events first (trips, holidays, days off), then other one-offs.
+// Only big or fun things: trips, days off, holidays, birthdays, parties, shows, tournaments.
+// Never practices, lessons, games of a team's weekly schedule or anything that repeats.
+const ROUTINE = /practice|entra[iî]nement|\bentr\.|training|tutor|lesson|le[çc]on|\bcours\b|clean|m[ée]nage|check-in|medicine|m[ée]dicament|wash ?& ?go|rehearsal|r[ée]p[ée]tition|meeting|r[ée]union|poker/i;
+const FUN = /anniv|birthday|\bb-?day|f[êe]te|party|soir[ée]e|trip|voyage|vacances|holiday|break|\bcamp\b|concert|spectacle|show|r[ée]cital|festival|gala|tournament|tournoi|\bcup\b|coupe|parade|disney|\bzoo\b|aquarium|mus[ée]e|museum|visit|celebrat|c[ée]l[ée]bration|wedding|mariage|graduation|thanksgiving|no[ëe]l|christmas|halloween|diwali|sleepover|pyjama|sortie|movie|cin[ée]ma|block party|discovery|field day|pas d'[ée]cole|no school/i;
+let SERIES = null, SERIES_OF = null;
+const head3 = (t) => fold(t).replace(/[^a-z0-9 ]/g, ' ').trim().split(/\s+/).slice(0, 3).join(' ');
+function series(e) { // a title family that shows up 4+ times (a team's schedule, a weekly class)
+  if (SERIES_OF !== S) { SERIES = new Map(); SERIES_OF = S; S.events.forEach((x) => SERIES.set(head3(x.t), (SERIES.get(head3(x.t)) || 0) + 1)); }
+  return (SERIES.get(head3(e.t)) || 0) >= 4;
+}
+const bigEvent = (e) => !e.rec && !e.hol && !ROUTINE.test(e.t) && (FUN.test(e.t) || (!!e.sd && !e.team && !series(e)));
 function soonList(from, max) {
-  const big = [], other = [], seen = new Set(), end = addDays(from, 120);
-  for (let x = new Date(from); x < end && big.length < max; x = addDays(x, 1)) {
+  const out = [], seen = new Set(), end = addDays(from, 120);
+  for (let x = new Date(from); x < end && out.length < max; x = addDays(x, 1)) {
     const k = ymd(x);
     for (const e of itemsFor(k)) {
-      if (e.rec || seen.has(e.t) || (e.sd && e.sd !== k && ymd(from) !== k)) continue;
+      if (out.length >= max || seen.has(e.t) || (e.sd && e.sd !== k && ymd(from) !== k) || !bigEvent(e)) continue;
       seen.add(e.t);
-      (e.sd || /anniv|birthday|fête/i.test(e.t) ? big : other).push({ e, day: new Date(x) });
+      out.push({ e, day: new Date(x) });
     }
   }
-  return big.concat(other).sort((a, b) => a.day - b.day).slice(0, max);
+  return out;
 }
 const countdown = (day) => { const n = Math.round((day - parse(ymd(new Date()))) / 864e5); return n <= 0 ? "Aujourd'hui" : n === 1 ? 'Demain' : `Dans ${n}${NB}jours`; };
 function soonTile() {
-  const from = addDays(monday(new Date()), 14); // after the two weeks shown on the calendar
-  const list = soonList(from, 4);
+  const from = addDays(sunday(new Date()), 14); // after the two weeks shown on the calendar
+  const list = soonList(from, 3);
   if (!list.length) return '';
   return `<section class="soonp panel"><div class="label">Bientôt</div>${list.map(({ e, day }) => {
     const n = Math.round((day - parse(ymd(new Date()))) / 864e5);
@@ -496,23 +541,63 @@ function soonTile() {
 }
 
 // ---------------------------------------------------------------- calendrier page
+// Search and "whose events": cleared when leaving the calendar or after 1 minute without a change.
+let CF = { q: '', who: '' }, cfTimer;
+const cfOn = () => !!(CF.q.trim() || CF.who);
+function cfTouch() {
+  clearTimeout(cfTimer);
+  cfTimer = setTimeout(() => { CF = { q: '', who: '' }; if (route === 'cal' && !modal) render(); }, 60000);
+}
+function cfMatch(e) {
+  if (CF.who && (e.who || 'Fam') !== CF.who) return false;
+  const q = fold(CF.q.trim());
+  return !q || fold(`${e.t} ${e.loc || ''} ${e.notes || ''} ${(P[e.who] || P.Fam).n}`).includes(q);
+}
+// The calendar page shows only what matches; the home screen always shows everything.
+const viewItems = (key, opts) => (opts && opts.filter && cfOn() ? itemsFor(key).filter(cfMatch) : itemsFor(key));
+
 function calPage() {
-  const now = Date.now(), d = new Date(now);
-  const start = addDays(monday(d), PHONE() ? 0 : 14); // the home screen already shows the first two weeks
-  const end = addDays(monday(d), 7 * 14);
+  const d = new Date();
+  const ph = PHONE();
   // Phone only: the countdowns (on the tablet they are on the home screen).
-  const soon = PHONE() ? soonList(addDays(parse(ymd(d)), 7), 3) : [];
+  const soon = ph && !cfOn() ? soonList(addDays(parse(ymd(d)), 7), 3) : [];
   const soonHtml = soon.map((s) => `<span><span class="when">${countdown(s.day)}</span> ${esc(short(s.e.t))}</span>`).join('<span class="sep">·</span>');
-  const wk = (w) => `<div class="wk"><div class="wl">${dayShort(w)} – ${dayShort(addDays(w, 6))}</div>${weekRow(w, now, { focus: '' })}</div>`;
+  const who = ['M', 'F', 'Pa', 'Ma', 'Fam'].map((k) => `<button class="pc tap${CF.who === k ? ' on' : ''}" data-cwho="${k}" style="${CF.who === k ? `border-color:${P[k].c}` : ''}"><span class="dot" style="background:${P[k].c}"></span>${P[k].n}</button>`).join('');
+  const tools = `<div class="ctools"><label class="csearch">${I.search}<input id="cq" type="search" placeholder="Chercher…" autocomplete="off" value="${esc(CF.q)}"></label><div class="cwho">${who}</div>${cfOn() ? '<button class="pc tap clr" data-cclear>Effacer</button>' : ''}</div>`;
+  const gcal = ph ? `<a class="btn tap gcal" href="https://calendar.google.com/calendar/r/week" target="_blank" rel="noopener">${I.cal}Google Agenda</a>` : '';
+  return `<div class="page calp">${topBar('Calendrier', ph ? '' : 'Agenda Google de la famille · à partir de cette semaine', gcal)}
+    ${tools}
+    ${soon.length ? `<div class="soon panel"><span class="label">Bientôt</span>${soonHtml}</div>` : ''}
+    <div class="scroll" id="calbody">${calBody()}</div></div>`;
+}
+function calBody() {
+  const now = Date.now(), d = new Date(now);
+  const start = sunday(d), end = addDays(start, 7 * 15);
+  if (CF.q.trim()) { // a search shows a plain list of what matches, by day
+    let h = '', n = 0;
+    for (let x = parse(ymd(d)); x < end; x = addDays(x, 1)) {
+      const k = ymd(x), list = viewItems(k, { filter: true }).filter((e) => !(e.sd && e.sd < k && k !== ymd(d)));
+      if (!list.length) continue;
+      n += list.length;
+      h += `<div class="pday">${DOWL[x.getDay()]} ${x.getDate()} ${MONL[x.getMonth()]}</div>` + list.map((e) => `<button class="prow tap" data-ev="${esc(e.id)}"><span class="dot" style="background:${(P[e.who] || P.Fam).c}"></span><span class="pt num">${e.s ? hm(e.s) : 'Journée'}</span><span class="ptt">${esc(e.t)}</span></button>`).join('');
+    }
+    return n ? `<div class="hint">${n} résultat${n > 1 ? 's' : ''}</div><div class="results panel">${h}</div>` : '<div class="none" style="padding:20px 4px">Rien trouvé — essayez un autre mot</div>';
+  }
+  const wk = (w) => `<div class="wk"><div class="wl">${w.getTime() === start.getTime() ? 'Cette semaine · ' : ''}${dayShort(w)} – ${dayShort(addDays(w, 6))}</div>${weekRow(w, now, { focus: ymd(d), filter: true })}</div>`;
   let weeks = '', n = 0;
   for (let w = new Date(start); w < end; w = addDays(w, 7), n++) {
     if (n === 3) { weeks += '<div id="calrest"></div>'; const from = new Date(w); setTimeout(() => { const el = $('#calrest'); if (!el) return; let h = ''; for (let x = from; x < end; x = addDays(x, 7)) h += wk(x); el.outerHTML = h; fitDays(); }, 30); break; }
     weeks += wk(w);
   }
-  return `<div class="page">${topBar('Calendrier', PHONE() ? '' : "Les semaines après celles de l'accueil")}
-    ${soon.length ? `<div class="soon panel"><span class="label">Bientôt</span>${soonHtml}</div>` : ''}
-    <div class="scroll">${weeks}</div></div>`;
+  return weeks;
 }
+// Typing in the search only redraws the weeks, so the keyboard stays open.
+document.addEventListener('input', (e) => {
+  if (e.target.id !== 'cq') return;
+  CF.q = e.target.value; cfTouch();
+  const b = $('#calbody'); if (b) { b.innerHTML = calBody(); fitDays(); }
+  const t = $('.ctools'); if (t && !t.querySelector('[data-cclear]') && cfOn()) t.insertAdjacentHTML('beforeend', '<button class="pc tap clr" data-cclear>Effacer</button>');
+});
 
 // ---------------------------------------------------------------- repas
 const tabs = (on) => `<nav class="tabs"><a class="tap${on === 1 ? ' on' : ''}" href="#repas">Cette semaine</a><a class="tap${on === 2 ? ' on' : ''}" href="#votes">Semaine prochaine · votes</a></nav>`;
@@ -536,6 +621,7 @@ function votesPage() {
   const mon = parse(v.week);
   const who = ['M', 'F', 'Pa', 'Ma'].map((id) => `<button class="who tap" data-voter="${id}" style="${voter === id ? `border-color:${P[id].c};background:var(--panel2)` : ''}">${av(id)}${P[id].n}</button>`).join('');
   const NIGHTS = { Papa: 'lun. · mer. · ven.', Maman: 'mar. · jeu. · dim.', Enfant: `sam. ${addDays(mon, 5).getDate()} ${MON[addDays(mon, 5).getMonth()]}` };
+  const rmap = new Map(RCP().map((r) => [r.t, r]));
   const groups = v.groups.map((g) => {
     const mine = g.dishes.filter((x) => (v.votes[x.dish] || []).includes(voter)).length;
     const title = g.group === 'Enfant' ? v.kid : g.group;
@@ -543,7 +629,8 @@ function votesPage() {
     const tiles = g.dishes.map((x) => {
       const vs = v.votes[x.dish] || [];
       const on = voter && vs.includes(voter);
-      return `<button class="tile tap" data-vote="${esc(g.group)}|${esc(x.dish)}" style="${on ? `border-color:${P[voter].c};background:var(--panel2)` : ''}"><span class="tn">${esc(x.dish)}</span>${x.salade ? '<span class="tag" style="align-self:flex-start">+ salade</span>' : ''}<span class="tv">${vs.map((p) => av(p, 22)).join('')}</span></button>`;
+      const r = rmap.get(x.dish), meta = r ? [r.cui, r.prot].filter(Boolean).join(' · ') : '';
+      return `<button class="tile tap" data-vote="${esc(g.group)}|${esc(x.dish)}" style="${on ? `border-color:${P[voter].c};background:var(--panel2)` : ''}"><span class="tn">${esc(x.dish)}</span>${meta ? `<span class="tm">${esc(meta)}</span>` : ''}${x.salade ? '<span class="tag" style="align-self:flex-start">+ salade</span>' : ''}<span class="tv">${vs.map((p) => av(p, 22)).join('')}</span></button>`;
     }).join('');
     return `<div class="grp"><div class="gh"><span class="dot" style="background:${P[gid].c};width:12px;height:12px"></span>${esc(title)}<span class="gs">${NIGHTS[g.group]} — ${g.max === 1 ? '1 vote' : '3 votes max'}</span><span class="gc">${voter ? `${P[voter].n} : ${mine}/${g.max}` : ''}</span></div><div class="tiles">${tiles}</div></div>`;
   }).join('');
@@ -554,7 +641,7 @@ function votesPage() {
 
 // ---------------------------------------------------------------- tâches
 function tachesPage() {
-  const c = S.chores, d = new Date(), mon = monday(d), todayKey = ymd(d);
+  const c = S.chores, d = new Date(), mon = sunday(d), todayKey = ymd(d);
   const kid = (who) => {
     const list = c.tasks.filter((t) => t.who === who);
     const head = '<span></span>' + [0, 1, 2, 3, 4, 5, 6].map((i) => { const x = addDays(mon, i); return `<span class="h${ymd(x) === todayKey ? ' t' : ''}">${DOW[x.getDay()]}</span>`; }).join('');
@@ -622,6 +709,7 @@ const voice = {
     } catch { this.state = 'fail'; this.err = 'Le Wi-Fi est coupé · le message est gardé'; render(); }
   },
 };
+const voiceTo = () => (S && S.voiceTo) || 'Papa et Maman';
 function voicePage() {
   const v = voice;
   let body;
@@ -631,11 +719,11 @@ function voicePage() {
   } else if (v.state === 'sending') {
     body = `<div class="vicon" style="background:#263040">${I.mic('#C9D3DD', 64)}</div><div class="vh">Envoi…</div>`;
   } else if (v.state === 'sent') {
-    body = `<div class="vicon" style="background:#1E3A31">${I.check('#5FD3A6', 72)}</div><div class="vh">Envoyé à Papa et Maman</div><div class="vs">Ils le reçoivent par courriel</div>`;
+    body = `<div class="vicon" style="background:#1E3A31">${I.check('#5FD3A6', 72)}</div><div class="vh">Envoyé à ${esc(voiceTo())}</div><div class="vs">Par courriel</div>`;
   } else if (v.state === 'fail') {
     body = `<div class="vicon" style="background:#3B2E14"><svg width="72" height="72" viewBox="0 0 24 24" fill="none" stroke="#F2C14E" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 8v5M12 16.5v.01"/><path d="M10.3 3.9L2.6 17.2A2 2 0 0 0 4.3 20h15.4a2 2 0 0 0 1.7-2.8L13.7 3.9a2 2 0 0 0-3.4 0z"/></svg></div><div class="vh">Pas encore envoyé</div><div class="vs">${esc(v.err)}</div>${v.blob ? '<button class="btn gold tap" data-retry>Réessayer</button>' : ''}`;
   } else {
-    body = `<button class="vbtn" data-voice>${I.mic('#14110A', 80)}</button><div class="vh">Maintenez pour parler</div><div class="vs">Le message va à Papa et Maman</div>`;
+    body = `<button class="vbtn" data-voice>${I.mic('#14110A', 80)}</button><div class="vh">Maintenez pour parler</div><div class="vs">Le message va à ${esc(voiceTo())}</div>`;
   }
   return `<div class="page">${topBar('Message aux parents', '')}<div class="vwrap"><div class="vcard panel">${body}</div></div></div>`;
 }
@@ -657,18 +745,30 @@ const MODALS = {
   },
   day() {
     const d = parse(modal.key), now = Date.now();
-    const list = itemsFor(modal.key).map((e) => evHtml(e, modal.key, now)).join('');
+    const list = viewItems(modal.key, { filter: modal.filter }).map((e) => evHtml(e, modal.key, now)).join('');
     return `<div class="modal" data-close><section class="det panel dayall"><div class="dh"><span style="font-size:24px;font-weight:700">${DOWL[d.getDay()]} ${d.getDate()} ${MONL[d.getMonth()]}</span><button class="btn tap" data-close>${I.x}Fermer</button></div><div class="dlist">${list}</div></section></div>`;
   },
   dish() {
-    const d = parse(modal.date);
-    const prots = [...new Set(RCP().map((r) => r.prot).filter(Boolean))];
-    const tags = [['', 'Tous'], ...['Poulet', 'Bœuf', 'Porc', 'Agneau', 'Poisson', 'Dinde', 'Sans viande'].filter((x) => prots.includes(x)).map((x) => [x, x]), ['ip', 'Instant Pot'], ['kid', 'Facile enfants']];
-    const chips = tags.map(([k, n]) => `<button class="pc tap${pick.tag === k ? ' on' : ''}" data-ptag="${esc(k)}">${n}</button>`).join('');
-    const sorts = [['old', 'Pas fait depuis longtemps'], ['az', 'A–Z'], ['fav', 'Le plus fait']].map(([k, n]) => `<button class="tap${pick.sort === k ? ' on' : ''}" data-psort="${k}">${n}</button>`).join('');
-    return `<div class="picker"><section class="box panel"><div style="display:flex;align-items:center;justify-content:space-between"><div><div style="font-size:24px;font-weight:700">${DOWL[d.getDay()]} ${d.getDate()} · ${esc(modal.cook)}</div><div class="hint">Choisissez le plat</div></div><button class="btn tap" data-close>${I.x}Fermer</button></div>
-      <div class="ptools"><input id="pq" type="search" placeholder="Chercher un plat…" autocomplete="off" value="${esc(pick.q)}"><button class="btn tap" data-prand>🎲 Au hasard</button></div>
-      <div class="pchips">${chips}</div><div class="psort"><span class="hint">Trier :</span>${sorts}</div>
+    const d = parse(modal.date), all = RCP(), n = pickFiltered().length;
+    const group = (key, label, vals) => {
+      vals = vals.filter((v) => all.some((r) => facet(r, key).includes(v)));
+      if (!vals.length) return '';
+      return `<div class="pgrp"><span class="pgl">${label}</span><div class="pchips">${vals.map((v) => `<button class="tap${pick.f[key].includes(v) ? ' on' : ''}" data-pf="${key}|${esc(v)}">${esc(v)}</button>`).join('')}</div></div>`;
+    };
+    const extra = [['kid', 'Facile enfants'], ['salade', '+ salade'], ['old', 'Pas fait depuis 1 mois']]
+      .filter(([k]) => k !== 'salade' || all.some((r) => r.salade)).filter(([k]) => k !== 'kid' || all.some((r) => r.kid))
+      .map(([k, l]) => `<button class="tap${pick.f.more.includes(k) ? ' on' : ''}" data-pf="more|${k}">${l}</button>`).join('');
+    const sorts = [['old', 'Pas fait depuis longtemps'], ['az', 'A–Z'], ['fav', 'Le plus fait']].map(([k, l]) => `<button class="tap${pick.sort === k ? ' on' : ''}" data-psort="${k}">${l}</button>`).join('');
+    const any = pick.q || PICK_KEYS.some((k) => pick.f[k].length);
+    return `<div class="picker"><section class="box panel"><div class="pk-h"><div><div class="pk-t">${DOWL[d.getDay()]} ${d.getDate()} · ${esc(modal.cook)}</div><div class="hint">Choisissez le plat</div></div><button class="btn tap" data-close>${I.x}Fermer</button></div>
+      <div class="ptools"><input id="pq" type="search" placeholder="Chercher un plat, un ingrédient…" autocomplete="off" value="${esc(pick.q)}"><button class="btn tap" data-prand>🎲 Au hasard</button></div>
+      <div class="pfilters">
+        ${group('prot', 'Protéine', PROTS)}
+        ${group('cui', 'Cuisine', [...CUISINES, ...new Set(all.map((r) => r.cui).filter((c) => c && !CUISINES.includes(c)))])}
+        ${group('style', 'Style', [...STYLES, ...new Set(all.flatMap((r) => facet(r, 'style')).filter((c) => !STYLES.includes(c)))])}
+        ${extra ? `<div class="pgrp"><span class="pgl">Aussi</span><div class="pchips">${extra}</div></div>` : ''}
+      </div>
+      <div class="psort"><span class="pcount" id="pcount">${n} plat${n > 1 ? 's' : ''}</span>${sorts}${any ? '<button class="tap clr" data-pclear>Tout effacer</button>' : ''}</div>
       <div class="list">${pickList()}</div></section></div>`;
   },
 };
@@ -677,25 +777,46 @@ function renderModal() { $('#modal').innerHTML = modal ? MODALS[modal.kind]() : 
 const RCP = () => (S.recipes || []).map((r) => (typeof r === 'string' ? { t: r } : r));
 const fold = (x) => String(x).normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
 const IPOT = /instant pot|pressure/i;
-let pick = { q: '', tag: '', sort: 'old', hi: '' };
+const PROTS = ['Poulet', 'Bœuf', 'Porc', 'Agneau', 'Dinde', 'Poisson', 'Sans viande', 'Autre'];
+const CUISINES = ['Libanais', 'Méditerranéen', 'Français', 'Italien', 'Américain', 'Mexicain', 'Latino', 'Asiatique', 'Indien'];
+const STYLES = ['Rapide', 'Instant Pot', 'Grill', 'Four', 'Mijoté', 'Soupe', 'Salade', 'Sandwich', 'Pâtes', 'Riz', 'Nouilles'];
+const PICK_KEYS = ['prot', 'cui', 'style', 'more'];
+const emptyF = () => ({ prot: [], cui: [], style: [], more: [] });
+// What a dish can be filtered on (Instant Pot also comes from the name, for older data).
+function facet(r, key) {
+  if (key === 'prot') return r.prot ? [r.prot] : [];
+  if (key === 'cui') return r.cui ? [r.cui] : [];
+  const st = (r.style || []).slice();
+  if (IPOT.test(r.t) && !st.includes('Instant Pot')) st.push('Instant Pot');
+  return st;
+}
+let pick = { q: '', f: emptyF(), sort: 'old', hi: '' };
 const ago = (k) => (k ? Math.round((parse(ymd(new Date())) - parse(k)) / 864e5) : null);
+// Within a group, any choice matches (Poulet or Porc); across groups, all must match (Poulet and Asiatique).
 function pickFiltered() {
-  const q = fold(pick.q.trim());
-  return RCP().filter((r) => (!q || fold(r.t).includes(q) || fold(r.prot || '').includes(q))
-    && (!pick.tag || (pick.tag === 'ip' ? IPOT.test(r.t) : pick.tag === 'kid' ? r.kid : r.prot === pick.tag)));
+  const q = fold(pick.q.trim()), f = pick.f;
+  return RCP().filter((r) => (!q || fold(`${r.t} ${r.prot || ''} ${r.cui || ''} ${facet(r, 'style').join(' ')}`).includes(q))
+    && ['prot', 'cui', 'style'].every((k) => !f[k].length || facet(r, k).some((v) => f[k].includes(v)))
+    && (!f.more.includes('kid') || r.kid) && (!f.more.includes('salade') || r.salade)
+    && (!f.more.includes('old') || !r.last || ago(r.last) >= 30));
 }
 function pickList() {
   const l = pickFiltered(), A = (r) => (r.last ? ago(r.last) : 99999);
   l.sort(pick.sort === 'az' ? (a, b) => a.t.localeCompare(b.t) : pick.sort === 'fav' ? (a, b) => (b.n || 0) - (a.n || 0) || a.t.localeCompare(b.t) : (a, b) => A(b) - A(a) || a.t.localeCompare(b.t));
-  if (!l.length) return '<div class="none">Aucun plat — essayez un autre filtre</div>';
+  if (!l.length) return '<div class="none">Aucun plat — enlevez un filtre</div>';
   return l.map((r) => {
     const a = r.last ? ago(r.last) : null;
     const when = r.last === undefined ? '' : a == null ? 'jamais fait' : a === 0 ? "fait aujourd'hui" : `fait il y a ${a}${NB}j`;
-    const meta = [r.prot, when, r.salade ? '+ salade' : ''].filter(Boolean).join(' · ');
+    const meta = [r.cui, r.prot, when, r.salade ? '+ salade' : ''].filter(Boolean).join(' · ');
     return `<button class="tap${pick.hi === r.t ? ' hi' : ''}${a != null && a <= 10 ? ' recent' : ''}" data-pick="${esc(r.t)}"><span>${esc(r.t)}</span>${meta ? `<small>${esc(meta)}</small>` : ''}</button>`;
   }).join('');
 }
-document.addEventListener('input', (e) => { if (e.target.id === 'pq') { pick.q = e.target.value; pick.hi = ''; const l = $('.picker .list'); if (l) l.innerHTML = pickList(); } });
+document.addEventListener('input', (e) => {
+  if (e.target.id !== 'pq') return;
+  pick.q = e.target.value; pick.hi = '';
+  const l = $('.picker .list'); if (l) l.innerHTML = pickList();
+  const c = $('#pcount'), n = pickFiltered().length; if (c) c.textContent = `${n} plat${n > 1 ? 's' : ''}`;
+});
 function openModal(m, ttl) { modal = m; clearTimeout(modalTimer); if (ttl) modalTimer = setTimeout(() => { modal = null; renderModal(); }, ttl); renderModal(); }
 
 // ---------------------------------------------------------------- phone (parents)
@@ -703,6 +824,10 @@ function openModal(m, ttl) { modal = m; clearTimeout(modalTimer); if (ttl) modal
 const COZI = () => /Android/i.test(navigator.userAgent)
   ? 'intent://#Intent;action=android.intent.action.MAIN;category=android.intent.category.LAUNCHER;package=com.cozi.androidfree;S.browser_fallback_url=https%3A%2F%2Fmy.cozi.com%2F;end'
   : 'https://my.cozi.com/';
+function coziLink(cls) {
+  if (window.fully && window.fully.startApplication) return `<button class="${cls}" data-cozi>${I.cart}Courses</button>`;
+  return `<a class="${cls}" href="${COZI()}" target="_blank" rel="noopener">${I.cart}Courses</a>`;
+}
 // The phone asks once "Papa or Maman?" and remembers it (tap the name to change).
 let ME = store.get('me', null), phoneTo = 'Tous', draft = '';
 document.addEventListener('input', (e) => { if (e.target.id === 'msg') draft = e.target.value; });
@@ -711,42 +836,57 @@ function phoneWho() {
     ${['Pa', 'Ma'].map((id) => `<button class="pwb tap" data-me="${id}" style="border-color:${P[id].c}">${av(id, 44)}${P[id].n}</button>`).join('')}
     <button class="ver tap" data-update>v${VERSION}${DEMO ? ' · démo' : ''} ↻</button></div>`;
 }
+function phoneTabs(r) {
+  const on = (x) => (x.includes(r) ? ' class="on"' : '');
+  return `<nav class="pnav"><a${on([''])} href="#">${I.home}Accueil</a><a${on(['cal'])} href="#cal">${I.cal}Agenda</a><a${on(['repas', 'votes'])} href="#repas">${I.food}Repas</a><a${on(['taches'])} href="#taches">${I.check2}Tâches</a><a href="${COZI()}">${I.cart}Courses</a></nav>`;
+}
 function phoneHome() {
   if (!ME) return phoneWho();
-  const d = new Date(), todayKey = ymd(d);
+  const d = new Date(), todayKey = ymd(d), c = S.chores;
   const m = S.menu.find((x) => x.date === todayKey);
   const voted = S.vote && Object.values(S.vote.votes).some((l) => l.includes(ME));
-  let days = '';
-  for (let i = 0; i < 7; i++) {
-    const x = addDays(d, i), items = itemsFor(ymd(x));
+  let days = '', shown = 0;
+  for (let i = 0; i < 7 && shown < 14; i++) {
+    const x = addDays(d, i), k = ymd(x), items = itemsFor(k).filter((e) => !(e.e && e.e < Date.now()) && !(e.sd && e.sd < k && i > 0));
     if (!items.length) continue;
-    days += `<div class="pday">${i === 0 ? "AUJOURD'HUI" : i === 1 ? 'DEMAIN' : (DOWL[x.getDay()] + ' ' + x.getDate()).toUpperCase()}</div>` + items.map((e) => `<button class="prow tap" data-ev="${esc(e.id)}"><span class="dot" style="background:${(P[e.who] || P.Fam).c}"></span><span class="pt num">${e.s ? hm(e.s) : 'Journée'}</span><span style="text-align:left">${esc(short(e.t))}</span></button>`).join('');
+    shown += items.length;
+    days += `<div class="pday">${i === 0 ? "Aujourd'hui" : i === 1 ? 'Demain' : DOWL[x.getDay()] + ' ' + x.getDate()}</div>` + items.map((e) => `<button class="prow tap${e.rec ? ' dim' : ''}" data-ev="${esc(e.id)}"><span class="dot" style="background:${(P[e.who] || P.Fam).c}"></span><span class="pt num">${e.s ? hm(e.s) : 'Journée'}</span><span class="ptt">${esc(short(e.t))}</span></button>`).join('');
   }
+  const kids = ['M', 'F'].filter((k) => c.tasks.some((t) => t.who === k)).map((k) => {
+    const list = c.tasks.filter((t) => t.who === k), done = list.filter((t) => c.done.some((x) => x.d === todayKey && x.who === k && x.task === t.task)).length;
+    return `<a class="pkid tap" href="#taches">${av(k, 36)}<span class="grow"><b>${P[k].n}</b><span class="hint">${done}/${list.length} aujourd'hui</span></span><span class="num pkp" style="color:${P[k].c}">${c.points[k] || 0}<small> pts</small></span></a>`;
+  }).join('');
+  const cook = m ? COOK[m.cook] || 'Pa' : null;
   return `<div class="page phone">
-    <header style="display:flex;justify-content:space-between;align-items:center;height:44px"><button class="tap pme" data-switch>${av(ME, 28)}<span>${P[ME].n}</span><span class="hint">· ${DOW[d.getDay()]} ${d.getDate()} ${MON[d.getMonth()]}</span></button><button class="ver tap" data-update>v${VERSION}${DEMO ? ' · démo' : ''} ↻</button></header>
+    <header class="phead"><div><h1 class="pgreet">${d.getHours() >= 17 ? 'Bonsoir' : 'Bonjour'} ${esc(P[ME].n)}</h1><div class="hint">${DOWL[d.getDay()]} ${d.getDate()} ${MONL[d.getMonth()]}</div></div><button class="tap pme" data-switch aria-label="Changer de personne">${av(ME, 40)}</button></header>
+    <a class="card panel pdin tap" href="#repas"><span class="label">Ce soir</span><span class="pdish">${m && m.dish ? esc(m.dish) : 'À choisir'}${m && m.salade ? ' <span class="tag">+ salade</span>' : ''}</span>${m ? `<span class="hint"><span class="dot" style="background:${P[cook].c}"></span>${esc(m.cook)} cuisine</span>` : ''}</a>
+    ${S.vote ? `<a class="card panel prow pvote tap" href="#votes"><span>${voted ? 'Votes de la semaine prochaine · fait ✓' : '<b>Votez</b> pour les repas de la semaine prochaine'}</span><span class="hint">ferme ${DOW[new Date(S.vote.closes).getDay()]} ${hm(S.vote.closes)} ›</span></a>` : ''}
+    <section class="card panel"><div class="label">Au programme</div>${days || '<div class="none">Rien cette semaine</div>'}<a class="hint more2" href="#cal">Tout l'agenda ›</a></section>
+    ${kids ? `<section class="card panel"><div class="label">Les enfants</div>${kids}</section>` : ''}
     <section class="card panel"><label class="label" for="msg">Message pour le mur</label>
       <input id="msg" type="text" maxlength="200" placeholder="Ex. : Piano annulé ce soir" autocomplete="off" value="${esc(draft)}">
       <div class="seg">${['Tous', P.M.n, P.F.n].map((t) => `<button class="tap${phoneTo === t ? ' on' : ''}" data-to="${t}">${t}</button>`).join('')}</div>
       <button class="btn gold tap" data-send style="justify-content:center">Envoyer au mur</button></section>
-    <section class="card panel"><a href="#repas" style="display:flex;flex-direction:column;gap:4px"><span class="label">Ce soir${m ? ' · ' + esc(m.cook) : ''}</span><span style="font-size:17px;font-weight:700">${m && m.dish ? esc(m.dish) : 'À choisir'} ${m && m.salade ? '<span class="tag">+ salade</span>' : ''}</span></a>
-      <a href="#votes" class="prow" style="justify-content:space-between;border-top:1px solid #263040;padding-top:8px"><span>Votes · ${voted ? 'vous avez voté' : '<span style="color:var(--gold)">pas encore voté</span>'}</span><span class="hint">${S.vote ? DOW[new Date(S.vote.closes).getDay()] + ' ' + hm(S.vote.closes) : ''} ›</span></a></section>
-    <section class="card panel">${days || '<div class="none">Rien cette semaine</div>'}</section>
-    <nav class="pnav"><a class="on" href="#">${I.home}Accueil</a><a href="#repas">${I.food}Repas</a><a href="#cal">${I.cal}Calendrier</a><a href="${COZI()}">${I.cart}Courses</a></nav>
+    <div class="plinks"><a href="#regles">Règles</a><span>·</span><a href="#contacts">Contacts</a><span>·</span><button class="ver tap" data-update>v${VERSION}${DEMO ? ' · démo' : ''} ↻</button></div>
   </div>`;
 }
 
 // ---------------------------------------------------------------- taps (one listener for everything)
 document.addEventListener('click', (ev) => {
-  const t = ev.target.closest('[data-ptag],[data-psort],[data-prand],[data-day],[data-task],[data-seen],[data-ev],[data-close],[data-dish],[data-pick],[data-voter],[data-vote],[data-update],[data-me],[data-switch],[data-to],[data-send],[data-retry]');
+  const t = ev.target.closest('[data-cwho],[data-cclear],[data-cozi],[data-pf],[data-pclear],[data-psort],[data-prand],[data-day],[data-task],[data-seen],[data-ev],[data-close],[data-dish],[data-pick],[data-voter],[data-vote],[data-update],[data-me],[data-switch],[data-to],[data-send],[data-retry]');
   if (!t) return;
   const ds = t.dataset;
-  if (ds.day) { openModal({ kind: 'day', key: ds.day }, 30000); return; }
+  if (ds.cwho) { CF.who = CF.who === ds.cwho ? '' : ds.cwho; cfTouch(); render(); return; }
+  if ('cclear' in ds) { CF = { q: '', who: '' }; clearTimeout(cfTimer); render(); return; }
+  if ('cozi' in ds) { try { window.fully.startApplication('com.cozi.androidfree'); } catch { location.href = 'https://my.cozi.com/'; } return; }
+  if (ds.day) { openModal({ kind: 'day', key: ds.day, filter: route === 'cal' }, 30000); return; }
   if (ds.task) { const [who, task, pts, done] = ds.task.split('|'); act({ a: 'task', who, task, pts: +pts, done: done === '1' }); }
   else if (ds.seen) act({ a: 'seen', id: ds.seen });
   else if (ds.ev) { const e = S.events.find((x) => x.id === ds.ev) || itemsFor(ds.ev.slice(3)).find((x) => x.id === ds.ev); if (e) openModal({ kind: 'ev', e }, PHONE() ? 0 : 20000); }
   else if ('close' in ds) { if (ev.target.closest('.det') && !t.matches('button')) return; modal = null; renderModal(); }
-  else if (ds.dish) { const [date, cook] = ds.dish.split('|'); pick = { q: '', tag: ['M', 'F'].includes(COOK[cook]) ? 'kid' : '', sort: 'old', hi: '' }; openModal({ kind: 'dish', date, cook }); }
-  else if ('ptag' in ds) { pick.tag = pick.tag === ds.ptag ? '' : ds.ptag; pick.hi = ''; renderModal(); }
+  else if (ds.dish) { const [date, cook] = ds.dish.split('|'); pick = { q: '', f: emptyF(), sort: 'old', hi: '' }; if (['M', 'F'].includes(COOK[cook]) && RCP().some((r) => r.kid)) pick.f.more.push('kid'); openModal({ kind: 'dish', date, cook }); }
+  else if (ds.pf) { const [k, v] = ds.pf.split('|'), l = pick.f[k], i = l.indexOf(v); if (i < 0) l.push(v); else l.splice(i, 1); pick.hi = ''; renderModal(); }
+  else if ('pclear' in ds) { pick.q = ''; pick.f = emptyF(); pick.hi = ''; renderModal(); }
   else if (ds.psort) { pick.sort = ds.psort; renderModal(); }
   else if ('prand' in ds) { const l = pickFiltered(); if (l.length) { pick.hi = l[Math.floor(Math.random() * l.length)].t; renderModal(); const el = $('.picker .hi'); if (el) el.scrollIntoView({ block: 'center' }); } }
   else if (ds.pick) { act({ a: 'dish', date: modal.date, cook: modal.cook, dish: ds.pick }); modal = null; render(); }
@@ -822,7 +962,10 @@ if ('serviceWorker' in navigator && !DEMO_LOCAL()) {
 function DEMO_LOCAL() { return location.protocol === 'file:'; }
 
 // ---------------------------------------------------------------- wake, clock, refresh
-function wake() { touched(); refresh(); weather(); checkUpdate(false); applyMode(); }
+function wake() {
+  touched(); refresh(); weather(); checkUpdate(false); applyMode();
+  if (saverOn) { clearTimeout(saverHide); saverHide = setTimeout(hideSaver, 8000); } // a look at the rule, then home
+}
 document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') wake(); });
 try { if (window.fully) { window.fully.bind('screenOn', 'window.__fccWake && window.__fccWake()'); window.fully.bind('onMotion', 'window.__fccWake && window.__fccWake()'); } } catch { /* */ }
 window.__fccWake = wake;

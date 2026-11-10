@@ -25,6 +25,8 @@ window.FCC_DEMO = function () {
   add({ t: 'Photo de classe Hugo', who: 'F', sd: ymd(day(16)), ed: ymd(day(17)) });
   add({ t: "Concert d'hiver Hugo", who: 'F', s: at(25, 18), e: at(25, 19) });
   add({ t: 'Visite des grands-parents', who: 'Fam', sd: ymd(day(30)), ed: ymd(day(34)) });
+  add({ t: "Fête d'anniversaire de Léa", who: 'M', s: at(20, 14), e: at(20, 17) });
+  add({ t: 'Voyage à la montagne', who: 'Fam', sd: ymd(day(38)), ed: ymd(day(41)) });
   const school = [
     { sd: ymd(day(2)), ed: ymd(day(2)), t: "Veterans Day — pas d'école" },
     { sd: ymd(day(14)), ed: ymd(day(16)), t: "Pas d'école" },
@@ -54,8 +56,13 @@ window.FCC_DEMO = function () {
       ],
       votes: { 'Thai Green Curry': ['M', 'Ma'], 'Shrimp Tacos': ['F'], 'Chicken Satay Bake': ['F', 'M'], 'Chili (Instant Pot)': ['Pa'], 'Couscous Royale': ['Ma'], 'Homemade Pizza (Toppings Guide)': ['M', 'Pa'], 'Breakfast Burritos': ['F'] },
     },
-    recipes: [['Ancho Chicken Salad', 'Poulet', 3], ['Beef Shawarma Wrap', 'Bœuf', 20], ['Boeuf Bourguignon', 'Bœuf', 45], ['Butter Chicken (Instant Pot)', 'Poulet', 12], ['Chili (Instant Pot)', 'Bœuf', 0], ['Couscous Royale', 'Autre', 60], ['Frittatas', 'Sans viande', 0, 1], ['Homemade Pizza (Toppings Guide)', 'Autre', 9, 1], ['Kafta', 'Bœuf', 30], ['Salmon Fried Rice', 'Poisson', 7], ['Shrimp Tacos', 'Poisson', 0, 1], ['Thai Green Curry', 'Poulet', 25]]
-      .map(([t, prot, a, kid]) => ({ t, prot, kid: !!kid, salade: false, last: a ? ymd(day(-a)) : '', n: a ? 1 + (a % 4) : 0 })),
+    recipes: [
+      ['Ancho Chicken Salad', 'Poulet', 'Mexicain', 'Salade, Rapide', 3], ['Beef Shawarma Wrap', 'Bœuf', 'Libanais', 'Sandwich', 20], ['Boeuf Bourguignon', 'Bœuf', 'Français', 'Mijoté', 45],
+      ['Butter Chicken (Instant Pot)', 'Poulet', 'Indien', 'Instant Pot, Mijoté', 12], ['Chili (Instant Pot)', 'Bœuf', 'Américain', 'Instant Pot, Mijoté', 0], ['Couscous Royale', 'Autre', 'Méditerranéen', 'Mijoté', 60],
+      ['Frittatas', 'Sans viande', 'Italien', 'Four, Rapide', 0, 1], ['Homemade Pizza (Toppings Guide)', 'Autre', 'Italien', 'Four', 9, 1], ['Kafta', 'Bœuf', 'Libanais', 'Grill', 30],
+      ['Salmon Fried Rice', 'Poisson', 'Asiatique', 'Riz, Rapide', 7], ['Shrimp Tacos', 'Poisson', 'Mexicain', 'Rapide', 0, 1], ['Thai Green Curry', 'Poulet', 'Asiatique', 'Mijoté', 25],
+      ['Pad Kra Pao (Pork and Thai Basil Stir-fry)', 'Porc', 'Asiatique', 'Rapide', 40], ['Lentil Soup', 'Sans viande', 'Libanais', 'Soupe', 15], ['Hamburgers', 'Bœuf', 'Américain', 'Grill', 5, 1],
+    ].map(([t, prot, cui, style, a, kid]) => ({ t, prot, cui, style: style.split(', '), kid: !!kid, salade: false, last: a ? ymd(day(-a)) : '', n: a ? 1 + (a % 4) : 0 })),
     rules: [
       { t: 'On parle avec respect', d: "Pas de cris, pas d'insultes." },
       { t: 'On aime soi-même et les autres', d: 'Encouragements, entraide, gentillesse.' },
@@ -73,7 +80,7 @@ window.FCC_DEMO = function () {
       { name: 'Neighbor', role: 'Trusted neighbor', phone: '555-0102', kind: 'help' },
       { name: 'Vet', role: 'Animal clinic', phone: '555-0103', kind: 'help' },
     ],
-    weather: [{ who: 'M', label: 'École A', lat: 32.85, lon: -117.2 }, { who: 'F', label: 'École B', lat: 32.75, lon: -117.1 }],
+    voiceTo: 'Papa', weather: [{ who: 'M', label: 'École A', lat: 32.85, lon: -117.2 }, { who: 'F', label: 'École B', lat: 32.75, lon: -117.1 }],
     people: { M: 'Léa', F: 'Hugo', Pa: 'Papa', Ma: 'Maman' },
   };
 };

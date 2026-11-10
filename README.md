@@ -4,7 +4,7 @@ Family wall tablet (Android, Fully Kiosk Browser). Plain HTML/CSS/JS on GitHub P
 **No family data lives in this public repository**: names, events, contacts and settings come from a private Google Apps Script that is not stored here. `?demo` shows a made-up family.
 
 - **See it now with sample data:** https://sachafontaine-cell.github.io/fontaine-control-center/?demo
-- **Version / update:** the small `v0.1.12 ↻` at the bottom right checks for an update right away. The tablet also checks by itself when someone walks up and every 30 minutes, and applies new versions on the home screen.
+- **Version / update:** the small `v0.2.0 ↻` at the bottom right checks for an update right away. The tablet also checks by itself when someone walks up and every 30 minutes, and applies new versions on the home screen.
 
 ## One-time setup
 
@@ -19,6 +19,8 @@ The app is then at `https://sachafontaine-cell.github.io/fontaine-control-center
 4. Back in the editor, pick **setup** in the function list and click **Run**. Approve the permissions (Calendar, Sheets, Slides, Gmail send, Maps).
 5. Open **Execution log**: copy the **KEY** line. setup() also created a Sheet "Fontaine Control Center — données" in your Drive.
 6. **Deploy → New deployment → Web app**. Execute as: **Me**. Who has access: **Anyone**. Deploy and copy the **Web app URL** (ends in `/exec`).
+
+**When `Code.gs` changes later:** paste the new file over the old one, save, then **Deploy → Manage deployments → ✎ (edit) → Version: New version → Deploy**. The address stays the same, so nothing changes on the tablet or phones.
 
 ### 3. The family link
 Build this link (keep it private — it opens the family data):
@@ -36,20 +38,26 @@ https://sachafontaine-cell.github.io/fontaine-control-center/?k=KEY
 - **Motion detection** (front camera): on — the app turns it off 20:30–7:00 by itself.
 - **Scheduled sleep / wake up:** sleep 22:00, wake 5:45.
 - **Web content settings:** enable microphone access (voice notes).
+- **Kiosk mode → Kiosk app whitelist:** add `com.cozi.androidfree`, so the **Courses** button can open the Cozi app (Android's back button returns to the wall).
 - **Advanced web settings:** enable the JavaScript interface (lets the app switch motion detection at night).
 - **Screen brightness:** low (less heat).
+- **House rules screensaver:** after 40 s without a touch on the home screen, one rule fills the screen (a different one each time). Keep the screen-off timer above 40 s so the kids get to see it; when the screen wakes, the rule stays 8 s, or until someone touches it.
 - Only the wall tablet goes dark at night and returns to the home screen after 90 s (it is recognized by Fully Kiosk). Phones and computers never do. To try the wall behavior in a normal browser, add `&wall` to the link once.
 - Settings → Battery: turn on a charge limit if the tablet offers one.
 
 ## Where to change what (one place each)
 | Thing | Change it in |
 |---|---|
-| Events | Family Google Calendar |
+| Events | Family Google Calendar (Maman's invitations to Papa show up too: "Courriel Maman" in Réglages) |
 | Chores, points, rewards | "Tâches & Récompenses" sheet |
 | House rules | "Règles de la maison" slides |
 | Contacts, recipes, settings, school days off | "Fontaine Control Center — données" sheet |
+| Dish filters (protein, cuisine, style) | Recettes tab: columns Protéine, Cuisine, Style (styles separated by commas) |
+| Who gets the wall's voice notes | Réglages → "Courriels parents" (comma-separated) |
+| School names on the weather tiles | Réglages → the two "Météo …" rows (the first part is the name shown) |
 | Dinner | Repas screen (votes for next week; the cook swaps this week's dish) |
 | Messages to the kids | the family link on a parent's phone |
+| Groceries | Cozi (the Courses button on the wall and on phones opens it) |
 
 Votes close every **Thursday at 19:00**: the top dishes become next week's menu and next week's options appear.
 
