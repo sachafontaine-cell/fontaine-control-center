@@ -2,7 +2,7 @@
  * Snappy by design: the last data is saved on the tablet and drawn instantly; Google is only
  * asked in the background, and every tap changes the screen first and saves afterwards. */
 'use strict';
-const VERSION = '0.1.9';
+const VERSION = '0.1.10';
 
 // ---------------------------------------------------------------- config & storage
 const qs = new URLSearchParams(location.search);
@@ -15,6 +15,9 @@ if (qs.get('api')) store.set('api', qs.get('api'));
 const KEY = store.get('key', '');
 const API = store.get('api', '') || window.FCC_API || '';
 const DEMO = qs.has('demo') || !API || !KEY;
+// The wall tablet (Fully Kiosk) is the only screen that goes dark at night and returns home by itself.
+if (qs.has('wall')) store.set('wall', true);
+const WALL = () => !!window.fully || store.get('wall', false);
 
 // Names are not in this public code: they come from the private Google script (S.people).
 const P = {
@@ -32,8 +35,19 @@ function setPeople() {
   NAME_RE = new RegExp('\\b(' + ['M', 'F', 'Pa', 'Ma'].map((k) => P[k].n.replace(/[.*+?^${}()|[\]\\]/g, '')).join('|') + ')\\b', 'gi');
 }
 
-let S = store.get('state', null);
+// Fill in anything missing, so one broken part of the Google data never blanks the screen.
+function normalize(s) {
+  if (!s || typeof s !== 'object' || s.error) return null;
+  ['events', 'school', 'messages', 'menu', 'recipes', 'rules', 'contacts', 'weather'].forEach((k) => { if (!Array.isArray(s[k])) s[k] = []; });
+  s.chores = Object.assign({ tasks: [], rewards: [], points: {}, week: {}, done: [] }, s.chores || {});
+  if (!s.vote || !Array.isArray(s.vote.groups)) s.vote = null; else s.vote.votes = s.vote.votes || {};
+  s.events = s.events.filter((e) => e && e.t && (e.s || e.sd));
+  s.events.forEach((e) => { if (!P[e.who]) e.who = 'Fam'; if (!e.id) e.id = 'x' + Math.random().toString(36).slice(2); });
+  return s;
+}
+let S = normalize(store.get('state', null)), badKey = false;
 if (DEMO) S = window.FCC_DEMO();
+let outbox = store.get('outbox', []);
 setPeople();
 
 // ---------------------------------------------------------------- small helpers
@@ -78,8 +92,11 @@ async function refresh(force) {
   try {
     await flush();
     const r = await fetch(`${API}?k=${encodeURIComponent(KEY)}&t=${Date.now()}`, { cache: 'no-store' });
-    const s = await r.json();
-    if (!s.error) {
+    const raw = await r.json();
+    badKey = raw && raw.error ? (raw.error === 'key' ? 'Lien invalide — rouvrez le lien familial' : 'Google a renvoyé une erreur : ' + raw.error) : false;
+    const s = normalize(raw);
+    if (badKey && !S) render();
+    if (s) {
       S = s; store.set('state', S); lastFetch = Date.now(); setPeople();
       reapplyOutbox();
       if (!busy()) render();
@@ -90,7 +107,6 @@ async function refresh(force) {
 }
 
 // Actions change the screen at once, then go to Google in the background (retried if offline).
-let outbox = store.get('outbox', []);
 function send(action) {
   outbox.push(action); store.set('outbox', outbox);
   flush();
@@ -113,7 +129,7 @@ async function flush() {
 function reapplyOutbox() { outbox.forEach((a) => APPLY[a.a] && APPLY[a.a](a)); }
 const APPLY = {
   task(a) {
-    const c = S.chores; const t = c.today;
+    const c = S.chores; const t = ymd(new Date());
     const i = c.done.findIndex((x) => x.d === t && x.who === a.who && x.task === a.task);
     if (a.done && i < 0) { c.done.push({ d: t, who: a.who, task: a.task }); c.points[a.who] += a.pts; c.week[a.who] += a.pts; }
     if (!a.done && i >= 0) { c.done.splice(i, 1); c.points[a.who] -= a.pts; c.week[a.who] -= a.pts; }
@@ -126,9 +142,14 @@ const APPLY = {
   },
   dish(a) { const m = S.menu.find((x) => x.date === a.date); if (m) { m.dish = a.dish; m.salade = false; } },
   seen(a) { S.messages = S.messages.filter((m) => m.id !== a.id); },
-  message(a) { S.messages.push({ id: 'local' + Date.now(), at: Date.now(), from: a.from, to: a.to, text: a.text }); },
+  message(a) { const id = 'local' + a.at; if (!S.messages.some((m) => m.id === id)) S.messages.push({ id, at: a.at, from: a.from, to: a.to, text: a.text }); },
 };
-function act(a) { if (APPLY[a.a]) APPLY[a.a](a); if (!DEMO) store.set('state', S); send(a); render(); }
+if (S && !DEMO) reapplyOutbox(); // taps not yet sent to Google are shown again at start
+// Saving the whole screen takes a moment on a slow tablet, so it happens just after the tap is drawn.
+let saveTimer;
+const saveSoon = () => { clearTimeout(saveTimer); saveTimer = setTimeout(() => store.set('state', S), 1000); };
+addEventListener('pagehide', () => { if (saveTimer && !DEMO) { clearTimeout(saveTimer); store.set('state', S); } });
+function act(a) { if (APPLY[a.a]) APPLY[a.a](a); send(a); render(); if (!DEMO) saveSoon(); }
 
 // ---------------------------------------------------------------- weather (Open-Meteo, free, no key)
 let WX = store.get('wx', null);
@@ -159,10 +180,22 @@ const WXI = {
 
 // ---------------------------------------------------------------- calendar logic
 const KEYWORDS_OFF = /school|école|ecole|instructional|holiday|congé|conge|vacances|break/i;
+// Events grouped by day once per data load (fast on a slow tablet).
+let IDX = null, IDX_OF = null;
+function dayIndex() {
+  if (IDX_OF === S) return IDX;
+  IDX = new Map(); IDX_OF = S;
+  const put = (k, e) => { let l = IDX.get(k); if (!l) IDX.set(k, l = []); l.push(e); };
+  for (const e of S.events) {
+    if (!e.sd) { put(ymd(new Date(e.s)), e); continue; }
+    for (let x = parse(e.sd), n = 0; ymd(x) < e.ed && n < 400; x = addDays(x, 1), n++) put(ymd(x), e);
+  }
+  return IDX;
+}
 function itemsFor(key) {
   if (!S) return [];
   const seen = new Set();
-  const evs = S.events.filter((e) => e.sd ? e.sd <= key && key < e.ed : ymd(new Date(e.s)) === key)
+  const evs = (dayIndex().get(key) || [])
     .filter((e) => { const k = `${e.t.trim().toLowerCase()}|${e.sd || e.s}`; if (seen.has(k)) return false; seen.add(k); return true; }); // same event in two calendars
   const famOff = evs.some((e) => e.sd && !e.hol && KEYWORDS_OFF.test(e.t));
   const school = famOff ? [] : (S.school || []).filter((s) => s.sd <= key && key <= s.ed).map((s) => ({ id: 'sch' + s.sd, t: s.t, who: 'Fam', sd: s.sd, ed: ymd(addDays(parse(s.ed), 1)), school: true }));
@@ -186,10 +219,10 @@ function evHtml(e, key, now) {
   const dep = departure(e, now);
   const pill = dep ? `<span class="pill${dep.now ? ' now' : ''}">${dep.txt}</span>` : '';
   if (e.rec && e.s) {
-    return `<button class="rec tap${done ? ' done' : ''}" data-ev="${esc(e.id)}"><span><span class="dot" style="background:${p.c}"></span>${ini}${esc(short(e.t))} ${hm(e.s)}</span>${pill}</button>`;
+    return `<button class="rec tap${done ? ' done' : ''}" data-ev="${esc(e.id)}"><span><span class="dot" style="background:${p.c}"></span><span class="ct">${ini}${esc(short(e.t))} ${hm(e.s)}</span></span>${pill}</button>`;
   }
   const sub = e.s ? `<small>${ini}${hm(e.s)}</small>` : !e.school && ini ? `<small>${P[e.who].n}</small>` : e.school ? '<small class="school">Calendrier SDUSD</small>' : '';
-  return `<button class="chip tap${done ? ' done' : ''}" style="background:${p.bg};color:${p.fg}" data-ev="${esc(e.id)}">${esc(short(e.t))}${until}${sub}${pill}</button>`;
+  return `<button class="chip tap${done ? ' done' : ''}" style="background:${p.bg};color:${p.fg}" data-ev="${esc(e.id)}"><span class="ct">${esc(short(e.t))}</span>${until}${sub}${pill}</button>`;
 }
 // Short names so a 125px day box stays readable (team-feed prefixes and people's names removed).
 function short(t) {
@@ -207,11 +240,29 @@ function dayCell(d, now, opts) {
   let label = `${DOW[d.getDay()]} ${d.getDate()}${d.getDate() === 1 ? ' ' + MON[d.getMonth()] : ''}`;
   if (key === todayKey) label += ' · auj.';
   else if (key === ymd(addDays(new Date(now), 1)) && opts.focus === key) label += ' · demain';
-  const max = opts.max || 5;
   const shown = items.filter((e) => !(e.sd && e.sd < key && key !== opts.weekStart && key !== todayKey)); // multi-day: once per week, and on today
-  const html = shown.slice(0, max).map((e) => evHtml(e, key, now)).join('');
-  const more = shown.length > max ? `<span class="more">+${shown.length - max}</span>` : '';
-  return `<div class="${cls.join(' ')}"><span class="dl">${label}</span>${html}${more}</div>`;
+  const html = shown.slice(0, PHONE() ? 99 : 7).map((e) => evHtml(e, key, now)).join(''); // a box never fits more than ~6
+  return `<div class="${cls.join(' ')}" data-key="${key}" data-n="${shown.length}"><span class="dl">${label}</span>${html}</div>`;
+}
+// After drawing: a day with more than fits shows "+N", which opens the whole day.
+function fitDays() {
+  if (PHONE()) return;
+  const cut = [];
+  document.querySelectorAll('.day:not([data-fit])').forEach((d) => { // read pass (one layout)
+    d.dataset.fit = 1;
+    const items = [...d.querySelectorAll('.chip, .rec')], total = +d.dataset.n || items.length;
+    if (d.scrollHeight <= d.clientHeight + 1 && total === items.length) return;
+    const room = d.clientHeight - 8 - 42; // bottom padding + the "+N" line
+    let keep = 0;
+    while (keep < items.length && items[keep].offsetTop + items[keep].offsetHeight <= room) keep++;
+    cut.push([d, items, Math.max(1, keep), total]);
+  });
+  cut.forEach(([d, items, keep, total]) => { // write pass
+    items.slice(keep).forEach((x) => x.remove());
+    const more = document.createElement('button');
+    more.className = 'more tap'; more.dataset.day = d.dataset.key; more.textContent = `+${total - keep} de plus`;
+    d.appendChild(more);
+  });
 }
 function weekRow(start, now, opts) {
   let h = '';
@@ -223,6 +274,7 @@ function weekRow(start, now, opts) {
 // 7:00–20:30 normal (Fully Kiosk turns the screen off when idle and on when someone walks by),
 // 20:30–22:00 and 5:45–7:00 black (a touch shows the night clock), 22:00–5:45 Fully sleeps.
 function mode(d = new Date()) {
+  if (!WALL()) return 'day';
   const m = mins(d);
   if (m >= 420 && m < 1230) return 'day';
   if (m >= 1320 || m < 345) return 'sleep';
@@ -249,7 +301,7 @@ function applyMode() {
 $('#night').addEventListener('click', () => { peekUntil = Date.now() + 15000; applyMode(); setTimeout(applyMode, 15100); });
 
 // ---------------------------------------------------------------- routing
-const PHONE = () => innerWidth < 760;
+const PHONE = () => innerWidth < 760 || (innerHeight < 500 && matchMedia('(pointer: coarse)').matches);
 let route = location.hash.slice(1);
 let modal = null; // {kind, ...}
 function go(r) { if (route === r) { render(); return; } location.hash = r; }
@@ -260,17 +312,19 @@ let idleTimer;
 function touched() {
   clearTimeout(idleTimer);
   // Back to the home screen after 90 s without a touch.
-  idleTimer = setTimeout(() => { if (!PHONE() && voice.state !== 'rec') { modal = null; go(''); } }, 90000);
+  idleTimer = setTimeout(() => { if (WALL() && voice.state !== 'rec') { modal = null; go(''); } }, 90000);
 }
 addEventListener('pointerdown', touched, { passive: true });
 
 // ---------------------------------------------------------------- render
 function render() {
-  if (!S) { $('#app').innerHTML = `<div class="boot">${DEMO ? 'Famille Fontaine' : 'Chargement…'}</div>`; return; }
+  if (!S) { $('#app').innerHTML = `<div class="boot">${DEMO ? 'Famille Fontaine' : badKey ? esc(badKey) : 'Chargement…'}</div>`; return; }
   const r = route.split('/')[0];
   const view = { '': PHONE() ? phoneHome : home, cal: calPage, repas: repasPage, votes: votesPage, taches: tachesPage, regles: reglesPage, contacts: contactsPage, voix: voicePage }[r] || home;
+  document.documentElement.classList.toggle('ph', PHONE());
   $('#app').innerHTML = view();
-  $('#modal').innerHTML = modal ? MODALS[modal.kind]() : '';
+  renderModal();
+  fitDays();
   applyMode();
 }
 
@@ -313,7 +367,7 @@ function tasksTile() {
     if (!list.length) return '';
     return `<div class="kid"><div class="kh"><span class="kn">${av(who)}${P[who].n}</span><span class="kp num" style="color:${P[who].c}">${c.points[who] || 0} pts</span></div>
       ${list.map((t) => {
-        const on = c.done.some((x) => x.d === c.today && x.who === who && x.task === t.task);
+        const on = c.done.some((x) => x.d === ymd(new Date()) && x.who === who && x.task === t.task);
         return `<button class="task tap${on ? ' on' : ''}" data-task="${esc(who)}|${esc(t.task)}|${t.pts}|${on ? 0 : 1}"><span class="box" style="${on ? 'background:' + P[who].c : ''}">${on ? I.check() : ''}</span><span style="flex:1">${esc(t.task)}</span><span class="tp">+${t.pts}</span></button>`;
       }).join('')}</div>`;
   };
@@ -347,17 +401,19 @@ function calPage() {
   const end = addDays(monday(d), 7 * 14);
   // Bientôt: the next big one-off things after the home screen's two weeks.
   const seen = new Set(), soon = [];
-  for (let x = new Date(start); x < end && soon.length < 3; x = addDays(x, 1)) {
+  for (let x = PHONE() ? addDays(new Date(ymd(d) + 'T00:00'), 7) : new Date(start); x < end && soon.length < 3; x = addDays(x, 1)) {
     for (const e of itemsFor(ymd(x))) {
       if (e.rec || seen.has(e.t) || (e.sd && e.sd !== ymd(x))) continue;
       seen.add(e.t); soon.push({ e, day: new Date(x) }); if (soon.length === 3) break;
     }
   }
-  const countdown = (day) => { const n = Math.round((day - new Date(ymd(d) + 'T00:00')) / 86400000); return n < 14 ? `Dans ${n} jours` : `Dans ${Math.round(n / 7)} sem.`; };
+  const countdown = (day) => { const n = Math.round((day - new Date(ymd(d) + 'T00:00')) / 86400000); return n <= 0 ? "Aujourd'hui" : n === 1 ? 'Demain' : n < 14 ? `Dans ${n} jours` : `Dans ${Math.round(n / 7)} sem.`; };
   const soonHtml = soon.map((s) => `<span><span class="when">${countdown(s.day)}</span> ${esc(short(s.e.t))}</span>`).join('<span class="sep">·</span>');
-  let weeks = '';
-  for (let w = new Date(start); w < end; w = addDays(w, 7)) {
-    weeks += `<div class="wk"><div class="wl">${dayShort(w)} – ${dayShort(addDays(w, 6))}</div>${weekRow(w, now, { focus: '', max: 4 })}</div>`;
+  const wk = (w) => `<div class="wk"><div class="wl">${dayShort(w)} – ${dayShort(addDays(w, 6))}</div>${weekRow(w, now, { focus: '' })}</div>`;
+  let weeks = '', n = 0;
+  for (let w = new Date(start); w < end; w = addDays(w, 7), n++) {
+    if (n === 3) { weeks += '<div id="calrest"></div>'; const from = new Date(w); setTimeout(() => { const el = $('#calrest'); if (!el) return; let h = ''; for (let x = from; x < end; x = addDays(x, 7)) h += wk(x); el.outerHTML = h; fitDays(); }, 30); break; }
+    weeks += wk(w);
   }
   return `<div class="page">${topBar('Calendrier', PHONE() ? '' : "Les semaines après celles de l'accueil")}
     ${soon.length ? `<div class="soon panel"><span class="label">Bientôt</span>${soonHtml}</div>` : ''}
@@ -380,6 +436,7 @@ function repasPage() {
 let voter = null, voterTimer, flash = '';
 function votesPage() {
   const v = S.vote;
+  if (!v) return `<div class="page">${topBar('Repas', '', tabs(2))}<div class="none" style="padding:20px 4px">Pas de vote en cours.</div></div>`;
   if (PHONE() && ME) voter = ME;
   const closes = new Date(v.closes);
   const mon = parse(v.week);
@@ -504,13 +561,19 @@ const MODALS = {
       ${e.notes ? `<div class="notes">${esc(e.notes)}</div>` : ''}${e.school ? '<div class="notes">Selon le calendrier SDUSD — pas encore dans l\'agenda familial.</div>' : ''}${open}
       ${PHONE() ? '' : '<div class="fine">Se ferme tout seul dans 20 s · touchez n\'importe où pour fermer</div>'}</section></div>`;
   },
+  day() {
+    const d = parse(modal.key), now = Date.now();
+    const list = itemsFor(modal.key).map((e) => evHtml(e, modal.key, now)).join('');
+    return `<div class="modal" data-close><section class="det panel dayall"><div class="dh"><span style="font-size:24px;font-weight:700">${DOWL[d.getDay()]} ${d.getDate()} ${MONL[d.getMonth()]}</span><button class="btn tap" data-close>${I.x}Fermer</button></div><div class="dlist">${list}</div></section></div>`;
+  },
   dish() {
     const list = (S.recipes || []).map((r) => `<button class="tap" data-pick="${esc(r)}">${esc(r)}</button>`).join('');
     const d = parse(modal.date);
     return `<div class="picker"><section class="box panel"><div style="display:flex;align-items:center;justify-content:space-between"><div><div style="font-size:24px;font-weight:700">${DOWL[d.getDay()]} ${d.getDate()} · ${esc(modal.cook)}</div><div class="hint">Choisissez le plat</div></div><button class="btn tap" data-close>${I.x}Fermer</button></div><div class="list">${list}</div></section></div>`;
   },
 };
-function openModal(m, ttl) { modal = m; clearTimeout(modalTimer); if (ttl) modalTimer = setTimeout(() => { modal = null; render(); }, ttl); render(); }
+function renderModal() { $('#modal').innerHTML = modal ? MODALS[modal.kind]() : ''; }
+function openModal(m, ttl) { modal = m; clearTimeout(modalTimer); if (ttl) modalTimer = setTimeout(() => { modal = null; renderModal(); }, ttl); renderModal(); }
 
 // ---------------------------------------------------------------- phone (parents)
 // Cozi: opens the Cozi app on Android, the Cozi website elsewhere (or if the app isn't installed).
@@ -518,7 +581,8 @@ const COZI = () => /Android/i.test(navigator.userAgent)
   ? 'intent://#Intent;action=android.intent.action.MAIN;category=android.intent.category.LAUNCHER;package=com.cozi.androidfree;S.browser_fallback_url=https%3A%2F%2Fmy.cozi.com%2F;end'
   : 'https://my.cozi.com/';
 // The phone asks once "Papa or Maman?" and remembers it (tap the name to change).
-let ME = store.get('me', null), phoneTo = 'Tous';
+let ME = store.get('me', null), phoneTo = 'Tous', draft = '';
+document.addEventListener('input', (e) => { if (e.target.id === 'msg') draft = e.target.value; });
 function phoneWho() {
   return `<div class="page phone pwho"><div class="pwq">Qui êtes-vous ?</div>
     ${['Pa', 'Ma'].map((id) => `<button class="pwb tap" data-me="${id}" style="border-color:${P[id].c}">${av(id, 44)}${P[id].n}</button>`).join('')}
@@ -538,7 +602,7 @@ function phoneHome() {
   return `<div class="page phone">
     <header style="display:flex;justify-content:space-between;align-items:center;height:44px"><button class="tap pme" data-switch>${av(ME, 28)}<span>${P[ME].n}</span><span class="hint">· ${DOW[d.getDay()]} ${d.getDate()} ${MON[d.getMonth()]}</span></button><button class="ver tap" data-update>v${VERSION}${DEMO ? ' · démo' : ''} ↻</button></header>
     <section class="card panel"><label class="label" for="msg">Message pour le mur</label>
-      <input id="msg" type="text" maxlength="200" placeholder="Ex. : Piano annulé ce soir" autocomplete="off">
+      <input id="msg" type="text" maxlength="200" placeholder="Ex. : Piano annulé ce soir" autocomplete="off" value="${esc(draft)}">
       <div class="seg">${['Tous', P.M.n, P.F.n].map((t) => `<button class="tap${phoneTo === t ? ' on' : ''}" data-to="${t}">${t}</button>`).join('')}</div>
       <button class="btn gold tap" data-send style="justify-content:center">Envoyer au mur</button></section>
     <section class="card panel"><a href="#repas" style="display:flex;flex-direction:column;gap:4px"><span class="label">Ce soir${m ? ' · ' + esc(m.cook) : ''}</span><span style="font-size:17px;font-weight:700">${m && m.dish ? esc(m.dish) : 'À choisir'} ${m && m.salade ? '<span class="tag">+ salade</span>' : ''}</span></a>
@@ -550,13 +614,14 @@ function phoneHome() {
 
 // ---------------------------------------------------------------- taps (one listener for everything)
 document.addEventListener('click', (ev) => {
-  const t = ev.target.closest('[data-task],[data-seen],[data-ev],[data-close],[data-dish],[data-pick],[data-voter],[data-vote],[data-update],[data-me],[data-switch],[data-to],[data-send],[data-retry]');
+  const t = ev.target.closest('[data-day],[data-task],[data-seen],[data-ev],[data-close],[data-dish],[data-pick],[data-voter],[data-vote],[data-update],[data-me],[data-switch],[data-to],[data-send],[data-retry]');
   if (!t) return;
   const ds = t.dataset;
+  if (ds.day) { openModal({ kind: 'day', key: ds.day }, 30000); return; }
   if (ds.task) { const [who, task, pts, done] = ds.task.split('|'); act({ a: 'task', who, task, pts: +pts, done: done === '1' }); }
   else if (ds.seen) act({ a: 'seen', id: ds.seen });
   else if (ds.ev) { const e = S.events.find((x) => x.id === ds.ev) || itemsFor(ds.ev.slice(3)).find((x) => x.id === ds.ev); if (e) openModal({ kind: 'ev', e }, PHONE() ? 0 : 20000); }
-  else if ('close' in ds) { if (ev.target.closest('.det') && !t.matches('button')) return; modal = null; render(); }
+  else if ('close' in ds) { if (ev.target.closest('.det') && !t.matches('button')) return; modal = null; renderModal(); }
   else if (ds.dish) { const [date, cook] = ds.dish.split('|'); openModal({ kind: 'dish', date, cook }); }
   else if (ds.pick) { act({ a: 'dish', date: modal.date, cook: modal.cook, dish: ds.pick }); modal = null; render(); }
   else if (ds.voter) { voter = ds.voter; flash = ''; clearTimeout(voterTimer); voterTimer = setTimeout(() => { voter = null; render(); }, 120000); render(); }
@@ -573,7 +638,7 @@ document.addEventListener('click', (ev) => {
   else if (ds.me) { ME = ds.me; store.set('me', ME); render(); }
   else if ('switch' in ds) { ME = null; store.set('me', null); render(); }
   else if (ds.to) { phoneTo = ds.to; render(); }
-  else if ('send' in ds) { const i = $('#msg'); const text = i && i.value.trim(); if (text) { act({ a: 'message', from: P[ME].n, to: phoneTo, text }); toast('Envoyé au mur'); } }
+  else if ('send' in ds) { const i = $('#msg'); const text = i && i.value.trim(); if (text) { draft = ''; act({ a: 'message', from: P[ME].n, to: phoneTo, text, at: Date.now() }); toast('Envoyé au mur'); } }
   else if ('retry' in ds) { voice.state = 'sending'; render(); voice.upload(); }
 });
 // Hold-to-record: press starts, release sends, sliding off cancels.
