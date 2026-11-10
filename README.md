@@ -4,7 +4,7 @@ Family wall tablet (Android, Fully Kiosk Browser). Plain HTML/CSS/JS on GitHub P
 **No family data lives in this public repository**: names, events, contacts and settings come from a private Google Apps Script that is not stored here. `?demo` shows a made-up family.
 
 - **See it now with sample data:** https://sachafontaine-cell.github.io/fontaine-control-center/?demo
-- **Version / update:** the small `v0.1.0 ↻` at the bottom right checks for an update right away. The tablet also checks by itself when someone walks up and every 30 minutes, and applies new versions on the home screen.
+- **Version / update:** the small `v0.1.1 ↻` at the bottom right checks for an update right away. The tablet also checks by itself when someone walks up and every 30 minutes, and applies new versions on the home screen.
 
 ## One-time setup
 
@@ -24,10 +24,10 @@ The app is then at `https://sachafontaine-cell.github.io/fontaine-control-center
 Build this link (keep it private — it opens the family data):
 
 ```
-https://sachafontaine-cell.github.io/fontaine-control-center/?k=KEY&api=WEB_APP_URL
+https://sachafontaine-cell.github.io/fontaine-control-center/?k=KEY
 ```
 
-Open it once on the tablet and on each parent's phone; it's remembered after that.
+(The script address is already in `config.js`.) Open it once on the tablet and on each parent's phone; it's remembered after that.
 
 ### 4. Tablet (Fully Kiosk Browser, PLUS license)
 - **Start URL:** the family link above.
