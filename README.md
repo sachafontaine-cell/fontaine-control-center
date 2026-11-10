@@ -4,7 +4,7 @@ Family wall tablet (Android, Fully Kiosk Browser). Plain HTML/CSS/JS on GitHub P
 **No family data lives in this public repository**: names, events, contacts and settings come from a private Google Apps Script that is not stored here. `?demo` shows a made-up family.
 
 - **See it now with sample data:** https://sachafontaine-cell.github.io/fontaine-control-center/?demo
-- **Version / update:** the small `v0.2.1 ↻` at the bottom right checks for an update right away. The tablet also checks by itself when someone walks up and every 30 minutes, and applies new versions on the home screen.
+- **Version / update:** the small `v0.3.0 ↻` at the bottom right checks for an update right away. The tablet also checks by itself when someone walks up and every 30 minutes, and applies new versions on the home screen.
 
 ## One-time setup
 
@@ -19,6 +19,10 @@ The app is then at `https://sachafontaine-cell.github.io/fontaine-control-center
 4. Back in the editor, pick **setup** in the function list and click **Run**. Approve the permissions (Calendar, Sheets, Slides, Gmail send, Maps).
 5. Open **Execution log**: copy the **KEY** line. setup() also created a Sheet "Fontaine Control Center — données" in your Drive.
 6. **Deploy → New deployment → Web app**. Execute as: **Me**. Who has access: **Anyone**. Deploy and copy the **Web app URL** (ends in `/exec`).
+
+### 2b. Cozi groceries (optional, 2 min)
+In the Apps Script editor: **Project Settings → Script Properties → Add**: `COZI_USER` = your Cozi login email, `COZI_PASS` = your Cozi password. They stay in Google, never in this repository. Then pick **coziTest** in the function list and **Run** (approve the new permissions): the log lists your Cozi shopping lists.
+Items go to the Cozi list whose name contains the store (Aldi, Costco, Ralphs, Trader Joe's, Balboa); with no such list they go to the one named "Other". "Auto" sends specialty ingredients to Balboa and everything else to Aldi. Kids' items get their name in brackets. Cozi has no official API: if Cozi changes its service, adding stops working until the script is updated (the Courses button still opens Cozi).
 
 **When `Code.gs` changes later:** paste the new file over the old one, save, then **Deploy → Manage deployments → ✎ (edit) → Version: New version → Deploy**. The address stays the same, so nothing changes on the tablet or phones.
 
@@ -57,7 +61,7 @@ https://sachafontaine-cell.github.io/fontaine-control-center/?k=KEY
 | School names on the weather tiles | Réglages → the two "Météo …" rows (the first part is the name shown) |
 | Dinner | Repas screen (votes for next week; the cook swaps this week's dish) |
 | Messages to the kids | the family link on a parent's phone |
-| Groceries | Cozi (the Courses button on the wall and on phones opens it) |
+| Groceries | Cozi — added from the Courses button or a dinner's Ingrédients button (ingredients come from the newest Chef Luc recipe file in Drive) |
 
 Votes close every **Thursday at 19:00**: the top dishes become next week's menu and next week's options appear.
 

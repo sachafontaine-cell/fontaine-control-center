@@ -2,7 +2,7 @@
  * Snappy by design: the last data is saved on the tablet and drawn instantly; Google is only
  * asked in the background, and every tap changes the screen first and saves afterwards. */
 'use strict';
-const VERSION = '0.2.1';
+const VERSION = '0.3.0';
 
 // ---------------------------------------------------------------- config & storage
 const qs = new URLSearchParams(location.search);
@@ -406,7 +406,7 @@ const PHONE = () => innerWidth < 760 || (innerHeight < 500 && matchMedia('(point
 let route = location.hash.slice(1);
 let modal = null; // {kind, ...}
 function go(r) { if (route === r) { render(); return; } location.hash = r; }
-addEventListener('hashchange', () => { route = location.hash.slice(1); modal = null; voice.reset(); if (route !== 'cal') { CF = { q: '', who: '' }; clearTimeout(cfTimer); } render(); });
+addEventListener('hashchange', () => { route = location.hash.slice(1); modal = null; voice.reset(); CF = { q: '', who: '' }; clearTimeout(cfTimer); render(); });
 const busy = () => !!modal || voice.state === 'rec' || (document.activeElement && document.activeElement.tagName === 'INPUT');
 
 let idleTimer;
@@ -443,8 +443,8 @@ function home() {
     <div class="wx">${wxCards(focus, evening)}</div>
   </header>
   <section class="cal" aria-label="Calendrier, 2 semaines">
-    ${weekRow(wkStart, now, { focus, max: 5 })}
-    ${weekRow(addDays(wkStart, 7), now, { focus, max: 4 })}
+    ${weekRow(wkStart, now, { focus, max: 5, filter: true })}
+    ${weekRow(addDays(wkStart, 7), now, { focus, max: 4, filter: true })}
   </section>
   <aside class="side">
     ${tasksTile()}
@@ -488,7 +488,7 @@ function messagesTile() {
 // The house rules now come up as a screensaver (see "rule screensaver"); the footer keeps the color key.
 function footer() {
   return `<footer class="foot">
-    <div class="legend">${['M', 'F', 'Pa', 'Ma', 'Fam'].map((k) => `<span><span class="dot" style="background:${P[k].c}"></span>${P[k].n}</span>`).join('')}</div>
+    <div class="legend">${['M', 'F', 'Pa', 'Ma', 'Fam'].map((k) => `<button class="pc tap${CF.who === k ? ' on' : ''}" data-cwho="${k}" style="${CF.who === k ? `border-color:${P[k].c}` : ''}"><span class="dot" style="background:${P[k].c}"></span>${P[k].n}</button>`).join('')}</div>
     <nav class="nav">
       <a class="btn tap" href="#cal">${I.cal}Calendrier</a>
       <a class="btn tap" href="#repas">${I.food}Repas</a>
@@ -546,7 +546,7 @@ let CF = { q: '', who: '' }, cfTimer;
 const cfOn = () => !!(CF.q.trim() || CF.who);
 function cfTouch() {
   clearTimeout(cfTimer);
-  cfTimer = setTimeout(() => { CF = { q: '', who: '' }; if (route === 'cal' && !modal) render(); }, 60000);
+  cfTimer = setTimeout(() => { CF = { q: '', who: '' }; if ((route === 'cal' || route === '') && !modal) render(); }, 60000);
 }
 function cfMatch(e) {
   if (CF.who && (e.who || 'Fam') !== CF.who) return false;
@@ -608,7 +608,7 @@ function repasPage() {
     const cls = m.date < todayKey ? ' past' : m.date === todayKey ? ' today' : '';
     return `<div class="mrow${cls}"><span class="md">${DOW[d.getDay()]} ${d.getDate()}</span><span class="mc">${av(id)}${esc(m.cook)}</span>
       <button class="dish tap" data-dish="${m.date}|${esc(m.cook)}"><span>${m.dish ? esc(m.dish) : '<span style="color:var(--dim)">À choisir</span>'}</span>${m.salade ? '<span class="tag">+ salade</span>' : ''}</button>
-      <span class="hint">${m.date === todayKey ? 'Ce soir' : ''}</span></div>`;
+      ${S.cozi && m.dish && m.date >= todayKey ? `<button class="btn tap mcart" data-czdish="${esc(m.dish)}">${I.cart}Ingrédients</button>` : `<span class="hint">${m.date === todayKey ? 'Ce soir' : ''}</span>`}</div>`;
   }).join('');
   return `<div class="page">${topBar('Repas', '', tabs(1))}<div class="scroll" style="gap:8px">${rows}<div class="hint">Le cuisinier touche son plat pour le changer.</div></div></div>`;
 }
@@ -760,7 +760,7 @@ const MODALS = {
       .map(([k, l]) => `<button class="tap${pick.f.more.includes(k) ? ' on' : ''}" data-pf="more|${k}">${l}</button>`).join('');
     const sorts = [['old', 'Pas fait depuis longtemps'], ['az', 'A–Z'], ['fav', 'Le plus fait']].map(([k, l]) => `<button class="tap${pick.sort === k ? ' on' : ''}" data-psort="${k}">${l}</button>`).join('');
     const any = pick.q || PICK_KEYS.some((k) => pick.f[k].length);
-    return `<div class="picker"><section class="box panel"><div class="pk-h"><div><div class="pk-t">${DOWL[d.getDay()]} ${d.getDate()} · ${esc(modal.cook)}</div><div class="hint">Choisissez le plat</div></div><button class="btn tap" data-close>${I.x}Fermer</button></div>
+    return `<div class="picker"><section class="box panel"><div class="pk-h"><div><div class="pk-t">${DOWL[d.getDay()]} ${d.getDate()} · ${esc(modal.cook)}</div><div class="hint">Choisissez le plat</div></div><span class="pk-r">${S.menu.some((m) => m.date === modal.date && m.dish) ? '<button class="btn tap" data-pnone>Pas encore décidé</button>' : ''}<button class="btn tap" data-close>${I.x}Fermer</button></span></div>
       <div class="ptools"><input id="pq" type="search" placeholder="Chercher un plat, un ingrédient…" autocomplete="off" value="${esc(pick.q)}"><button class="btn tap" data-prand>🎲 Au hasard</button></div>
       <div class="pfilters">
         ${group('prot', 'Protéine', PROTS)}
@@ -772,6 +772,54 @@ const MODALS = {
       <div class="list">${pickList()}</div></section></div>`;
   },
 };
+// ---------------------------------------------------------------- groceries → Cozi
+// Kids' items get their name in brackets; a dinner's ingredients (from Chef Luc) go in together.
+const STORES = ['Auto', 'Aldi', 'Costco', 'Ralphs', "Trader Joe's", 'Balboa'];
+const PANTRY = /\b(salt|sel|pepper|poivre|olive oil|oil|huile|water|eau|sugar|sucre|flour|farine|garlic powder|onion powder|paprika|cumin|cinnamon|cannelle|oregano|origan|baking (soda|powder)|vanilla|honey|miel|vinegar|vinaigre|soy sauce|ketchup|mustard|moutarde|mayonnaise|chili flakes|bay lea|thyme|thym|spice|[ée]pice)\b/i;
+let cz = null;
+function openCozi(dish) {
+  cz = { who: PHONE() && ME ? ME : '', store: 'Auto', items: [], dish: dish || '', loading: !!dish, sending: false };
+  openModal({ kind: 'cozi' });
+  if (!dish) return;
+  const done = (list) => { if (!cz || cz.dish !== dish) return; cz.loading = false; cz.items = list.map((t) => ({ t, on: !PANTRY.test(t) })); renderModal(); };
+  if (DEMO) setTimeout(() => done(['Chicken breast 600 g', 'Cherry tomatoes 190 g', 'Avocado 2 small', 'Cilantro 75 g', 'Fine salt 7 g', 'Olive oil 20 g']), 300);
+  else fetch(`${API}?k=${encodeURIComponent(KEY)}&a=ing&t=${encodeURIComponent(dish)}`, { cache: 'no-store' }).then((r) => r.json()).then((j) => done(j.items || [])).catch(() => done([]));
+}
+function czAddTyped() {
+  const i = $('#czq'); const v = i && i.value.trim(); if (!v) return;
+  v.split(/[,\n]/).map((x) => x.trim()).filter(Boolean).forEach((t) => cz.items.push({ t, on: true }));
+  cz.q = '';
+  renderModal(); const n = $('#czq'); if (n) n.focus();
+}
+async function czSend() {
+  const items = cz.items.filter((x) => x.on).map((x) => x.t);
+  if (!items.length || cz.sending) return;
+  if (!cz.who) { toast("Touchez d'abord votre nom"); return; }
+  cz.sending = true; renderModal();
+  try {
+    let j = { ok: true, added: [{ list: cz.store === 'Auto' ? 'Aldi' : cz.store, n: items.length }] };
+    if (!DEMO) j = await (await fetch(API, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ a: 'cozi', k: KEY, who: cz.who, store: cz.store, items, dish: cz.dish }) })).json();
+    if (j.error) throw new Error(j.error);
+    cz = null; modal = null; renderModal();
+    toast(`Ajouté à Cozi · ${j.added.map((a) => `${a.n} → ${a.list}`).join(' · ')}`);
+  } catch (e) { cz.sending = false; renderModal(); toast(`Pas envoyé · ${String(e.message || 'pas de connexion').slice(0, 60)}`); }
+}
+MODALS.cozi = () => {
+  const n = cz.items.filter((x) => x.on).length;
+  const who = PHONE() && ME ? '' : `<div class="pgrp"><span class="pgl">Qui ?</span><div class="pchips">${['M', 'F', 'Pa', 'Ma'].map((k) => `<button class="tap${cz.who === k ? ' on' : ''}" data-czwho="${k}"><span class="dot" style="background:${P[k].c}"></span> ${P[k].n}</button>`).join('')}</div></div>`;
+  const stores = `<div class="pgrp"><span class="pgl">Magasin</span><div class="pchips">${STORES.map((st) => `<button class="tap${cz.store === st ? ' on' : ''}" data-czstore="${esc(st)}">${st === 'Auto' ? 'Auto (Aldi, Balboa pour les spécialités)' : esc(st)}</button>`).join('')}</div></div>`;
+  const list = cz.loading ? '<div class="none">Ingrédients de Chef Luc…</div>'
+    : cz.items.length ? cz.items.map((x, i) => `<div class="czi${x.on ? '' : ' off'}"><button class="tap czt" data-czon="${i}"><span class="ck">${x.on ? I.check('#14110A') : ''}</span>${esc(x.t)}</button><button class="tap czx" data-czdel="${i}" aria-label="Retirer">${I.x}</button></div>`).join('')
+    : `<div class="none">${cz.dish ? "Pas d'ingrédients trouvés pour ce plat — ajoutez-les ici." : 'Écrivez un article, puis Ajouter.'}</div>`;
+  return `<div class="picker"><section class="box panel czbox"><div class="pk-h"><div><div class="pk-t">${cz.dish ? 'Ingrédients' : 'Courses'}</div><div class="hint">${cz.dish ? esc(cz.dish) + ' · décochez ce que vous avez déjà' : 'Va directement dans Cozi'}</div></div><button class="btn tap" data-close>${I.x}Fermer</button></div>
+    <div class="pfilters">${who}${stores}</div>
+    <div class="ptools"><input id="czq" type="text" placeholder="Ex. : lait, pain" autocomplete="off" enterkeyhint="done" value="${esc(cz.q || '')}"><button class="btn tap" data-czadd>Ajouter</button></div>
+    <div class="czl">${list}</div>
+    <div class="czf"><a class="hint" href="${COZI()}" target="_blank" rel="noopener">Ouvrir Cozi ›</a><button class="btn gold tap" data-czsend ${n ? '' : 'disabled'}>${cz.sending ? 'Envoi…' : `Envoyer ${n} article${n > 1 ? 's' : ''} à Cozi`}</button></div></section></div>`;
+};
+document.addEventListener('input', (e) => { if (e.target.id === 'czq' && cz) cz.q = e.target.value; });
+document.addEventListener('keydown', (e) => { if (e.target.id === 'czq' && e.key === 'Enter') { e.preventDefault(); czAddTyped(); } });
+
 function renderModal() { $('#modal').innerHTML = modal ? MODALS[modal.kind]() : ''; }
 // ---------------------------------------------------------------- dish picker: search, filter, sort
 const RCP = () => (S.recipes || []).map((r) => (typeof r === 'string' ? { t: r } : r));
@@ -825,6 +873,7 @@ const COZI = () => /Android/i.test(navigator.userAgent)
   ? 'intent://#Intent;action=android.intent.action.MAIN;category=android.intent.category.LAUNCHER;package=com.cozi.androidfree;S.browser_fallback_url=https%3A%2F%2Fmy.cozi.com%2F;end'
   : 'https://my.cozi.com/';
 function coziLink(cls) {
+  if (S && S.cozi) return `<button class="${cls}" data-cz>${I.cart}Courses</button>`;
   if (window.fully && window.fully.startApplication) return `<button class="${cls}" data-cozi>${I.cart}Courses</button>`;
   return `<a class="${cls}" href="${COZI()}" target="_blank" rel="noopener">${I.cart}Courses</a>`;
 }
@@ -847,7 +896,7 @@ function installCard() {
 }
 function phoneTabs(r) {
   const on = (x) => (x.includes(r) ? ' class="on"' : '');
-  return `<nav class="pnav"><a${on([''])} href="#">${I.home}Accueil</a><a${on(['cal'])} href="#cal">${I.cal}Agenda</a><a${on(['repas', 'votes'])} href="#repas">${I.food}Repas</a><a${on(['taches'])} href="#taches">${I.check2}Tâches</a><a href="${COZI()}">${I.cart}Courses</a></nav>`;
+  return `<nav class="pnav"><a${on([''])} href="#">${I.home}Accueil</a><a${on(['cal'])} href="#cal">${I.cal}Agenda</a><a${on(['repas', 'votes'])} href="#repas">${I.food}Repas</a><a${on(['taches'])} href="#taches">${I.check2}Tâches</a>${S.cozi ? `<a href="#" data-cz>${I.cart}Courses</a>` : `<a href="${COZI()}">${I.cart}Courses</a>`}</nav>`;
 }
 function phoneHome() {
   if (!ME) return phoneWho();
@@ -883,9 +932,18 @@ function phoneHome() {
 
 // ---------------------------------------------------------------- taps (one listener for everything)
 document.addEventListener('click', (ev) => {
-  const t = ev.target.closest('[data-install],[data-noinstall],[data-cwho],[data-cclear],[data-cozi],[data-pf],[data-pclear],[data-psort],[data-prand],[data-day],[data-task],[data-seen],[data-ev],[data-close],[data-dish],[data-pick],[data-voter],[data-vote],[data-update],[data-me],[data-switch],[data-to],[data-send],[data-retry]');
+  const t = ev.target.closest('[data-cz],[data-czdish],[data-czwho],[data-czstore],[data-czon],[data-czdel],[data-czadd],[data-czsend],[data-pnone],[data-install],[data-noinstall],[data-cwho],[data-cclear],[data-cozi],[data-pf],[data-pclear],[data-psort],[data-prand],[data-day],[data-task],[data-seen],[data-ev],[data-close],[data-dish],[data-pick],[data-voter],[data-vote],[data-update],[data-me],[data-switch],[data-to],[data-send],[data-retry]');
   if (!t) return;
   const ds = t.dataset;
+  if ('cz' in ds) { ev.preventDefault(); openCozi(''); return; }
+  if (ds.czdish) { openCozi(ds.czdish); return; }
+  if (ds.czwho) { cz.who = ds.czwho; renderModal(); return; }
+  if (ds.czstore) { cz.store = ds.czstore; renderModal(); return; }
+  if (ds.czon) { const x = cz.items[+ds.czon]; x.on = !x.on; renderModal(); return; }
+  if (ds.czdel) { cz.items.splice(+ds.czdel, 1); renderModal(); return; }
+  if ('czadd' in ds) { czAddTyped(); return; }
+  if ('czsend' in ds) { czSend(); return; }
+  if ('pnone' in ds) { act({ a: 'dish', date: modal.date, cook: modal.cook, dish: '' }); modal = null; render(); return; }
   if ('install' in ds) {
     if (installEvt) { installEvt.prompt(); installEvt.userChoice.then(() => { installEvt = null; render(); }); }
     else toast(/iPhone|iPad/.test(navigator.userAgent) ? "Touchez Partager ⬆ puis « Sur l'écran d'accueil »" : "Menu ⋮ du navigateur puis « Ajouter à l'écran d'accueil »");

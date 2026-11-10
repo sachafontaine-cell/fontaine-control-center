@@ -80,7 +80,7 @@ window.FCC_DEMO = function () {
       { name: 'Neighbor', role: 'Trusted neighbor', phone: '555-0102', kind: 'help' },
       { name: 'Vet', role: 'Animal clinic', phone: '555-0103', kind: 'help' },
     ],
-    voiceTo: 'Papa', weather: [{ who: 'M', label: 'École A', lat: 32.85, lon: -117.2 }, { who: 'F', label: 'École B', lat: 32.75, lon: -117.1 }],
+    voiceTo: 'Papa', cozi: true, weather: [{ who: 'M', label: 'École A', lat: 32.85, lon: -117.2 }, { who: 'F', label: 'École B', lat: 32.75, lon: -117.1 }],
     people: { M: 'Léa', F: 'Hugo', Pa: 'Papa', Ma: 'Maman' },
   };
 };
