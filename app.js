@@ -2,7 +2,7 @@
  * Snappy by design: the last data is saved on the tablet and drawn instantly; Google is only
  * asked in the background, and every tap changes the screen first and saves afterwards. */
 'use strict';
-const VERSION = '0.3.1';
+const VERSION = '0.3.2';
 
 // ---------------------------------------------------------------- config & storage
 const qs = new URLSearchParams(location.search);
@@ -774,7 +774,7 @@ const MODALS = {
 };
 // ---------------------------------------------------------------- groceries → Cozi
 // Kids' items get their name in brackets; a dinner's ingredients (from Chef Luc) go in together.
-const STORES = ['Auto', 'Aldi', 'Costco', 'Balboa/Ralphs/TJ'];
+const STORES = ['Auto', 'Aldi', 'Costco', 'Balboa/99Ranch/TJ'];
 const PANTRY = /\b(salt|sel|pepper|poivre|olive oil|oil|huile|water|eau|sugar|sucre|flour|farine|garlic powder|onion powder|paprika|cumin|cinnamon|cannelle|oregano|origan|baking (soda|powder)|vanilla|honey|miel|vinegar|vinaigre|soy sauce|ketchup|mustard|moutarde|mayonnaise|chili flakes|bay lea|thyme|thym|spice|[ée]pice)\b/i;
 let cz = null;
 function openCozi(dish) {
@@ -807,7 +807,7 @@ async function czSend() {
 MODALS.cozi = () => {
   const n = cz.items.filter((x) => x.on).length;
   const who = PHONE() && ME ? '' : `<div class="pgrp"><span class="pgl">Qui ?</span><div class="pchips">${['M', 'F', 'Pa', 'Ma'].map((k) => `<button class="tap${cz.who === k ? ' on' : ''}" data-czwho="${k}"><span class="dot" style="background:${P[k].c}"></span> ${P[k].n}</button>`).join('')}</div></div>`;
-  const stores = `<div class="pgrp"><span class="pgl">Magasin</span><div class="pchips">${STORES.map((st) => `<button class="tap${cz.store === st ? ' on' : ''}" data-czstore="${esc(st)}">${st === 'Auto' ? 'Auto (Aldi · spécialités → Balboa/Ralphs/TJ)' : esc(st)}</button>`).join('')}</div></div>`;
+  const stores = `<div class="pgrp"><span class="pgl">Magasin</span><div class="pchips">${STORES.map((st) => `<button class="tap${cz.store === st ? ' on' : ''}" data-czstore="${esc(st)}">${st === 'Auto' ? 'Auto (Aldi · spécialités → Balboa/99Ranch/TJ)' : esc(st)}</button>`).join('')}</div></div>`;
   const list = cz.loading ? '<div class="none">Ingrédients de Chef Luc…</div>'
     : cz.items.length ? cz.items.map((x, i) => `<div class="czi${x.on ? '' : ' off'}"><button class="tap czt" data-czon="${i}"><span class="ck">${x.on ? I.check('#14110A') : ''}</span>${esc(x.t)}</button><button class="tap czx" data-czdel="${i}" aria-label="Retirer">${I.x}</button></div>`).join('')
     : `<div class="none">${cz.dish ? "Pas d'ingrédients trouvés pour ce plat — ajoutez-les ici." : 'Écrivez un article, puis Ajouter.'}</div>`;

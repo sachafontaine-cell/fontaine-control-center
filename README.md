@@ -4,7 +4,7 @@ Family wall tablet (Android, Fully Kiosk Browser). Plain HTML/CSS/JS on GitHub P
 **No family data lives in this public repository**: names, events, contacts and settings come from a private Google Apps Script that is not stored here. `?demo` shows a made-up family.
 
 - **See it now with sample data:** https://sachafontaine-cell.github.io/fontaine-control-center/?demo
-- **Version / update:** the small `v0.3.1 ↻` at the bottom right checks for an update right away. The tablet also checks by itself when someone walks up and every 30 minutes, and applies new versions on the home screen.
+- **Version / update:** the small `v0.3.2 ↻` at the bottom right checks for an update right away. The tablet also checks by itself when someone walks up and every 30 minutes, and applies new versions on the home screen.
 
 ## One-time setup
 
@@ -22,7 +22,7 @@ The app is then at `https://sachafontaine-cell.github.io/fontaine-control-center
 
 ### 2b. Cozi groceries (optional, 2 min)
 In the Apps Script editor: **Project Settings → Script Properties → Add**: `COZI_USER` = your Cozi login email, `COZI_PASS` = your Cozi password. They stay in Google, never in this repository. Then pick **coziTest** in the function list and **Run** (approve the new permissions): the log lists your Cozi shopping lists.
-Three Cozi shopping lists: **Aldi**, **Costco**, **Balboa/Ralphs/TJ** (the names must match). "Auto" sends specialty ingredients to Balboa/Ralphs/TJ and everything else to Aldi. Kids' items get their name in brackets. Cozi has no official API: if Cozi changes its service, adding stops working until the script is updated (the Courses button still opens Cozi).
+Three Cozi shopping lists: **Aldi**, **Costco**, **Balboa/99Ranch/TJ** (the names must match). "Auto" sends specialty ingredients to Balboa/99Ranch/TJ and everything else to Aldi. Kids' items get their name in brackets. Cozi has no official API: if Cozi changes its service, adding stops working until the script is updated (the Courses button still opens Cozi).
 
 **When `Code.gs` changes later:** paste the new file over the old one, save, then **Deploy → Manage deployments → ✎ (edit) → Version: New version → Deploy**. The address stays the same, so nothing changes on the tablet or phones.
 
