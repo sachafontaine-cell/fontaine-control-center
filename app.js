@@ -2,7 +2,7 @@
  * Snappy by design: the last data is saved on the tablet and drawn instantly; Google is only
  * asked in the background, and every tap changes the screen first and saves afterwards. */
 'use strict';
-const VERSION = '0.1.3';
+const VERSION = '0.1.4';
 
 // ---------------------------------------------------------------- config & storage
 const qs = new URLSearchParams(location.search);
@@ -82,6 +82,7 @@ async function refresh(force) {
       S = s; store.set('state', S); lastFetch = Date.now(); setPeople();
       reapplyOutbox();
       if (!busy()) render();
+      if (!WX) weather();
     }
   } catch { /* offline: keep the saved screen */ }
   fetching = false;
@@ -159,7 +160,9 @@ const WXI = {
 const KEYWORDS_OFF = /school|école|ecole|instructional|holiday|congé|conge|vacances|break/i;
 function itemsFor(key) {
   if (!S) return [];
-  const evs = S.events.filter((e) => e.sd ? e.sd <= key && key < e.ed : ymd(new Date(e.s)) === key);
+  const seen = new Set();
+  const evs = S.events.filter((e) => e.sd ? e.sd <= key && key < e.ed : ymd(new Date(e.s)) === key)
+    .filter((e) => { const k = `${e.t.trim().toLowerCase()}|${e.sd || e.s}`; if (seen.has(k)) return false; seen.add(k); return true; }); // same event in two calendars
   const famOff = evs.some((e) => e.sd && !e.hol && KEYWORDS_OFF.test(e.t));
   const school = famOff ? [] : (S.school || []).filter((s) => s.sd <= key && key <= s.ed).map((s) => ({ id: 'sch' + s.sd, t: s.t, who: 'Fam', sd: s.sd, ed: ymd(addDays(parse(s.ed), 1)), school: true }));
   let list = school.length ? evs.filter((e) => !e.hol) : evs;
@@ -189,7 +192,7 @@ function evHtml(e, key, now) {
 }
 // Short names so a 125px day box stays readable (team-feed prefixes and people's names removed).
 function short(t) {
-  return String(t).replace(/^Fall\s+/i, '').replace(/Team\s*\d+\s*-\s*/i, '').replace(/\b(practice|entraînement|entrainement)\b/gi, 'Entr.')
+  return String(t).replace(/\s*\b\d{1,2}(:\d{2})?\s*(am|pm)\b/gi, '').replace(/^Fall\s+/i, '').replace(/Team\s*\d+\s*-\s*/i, '').replace(/\b(practice|entraînement|entrainement)\b/gi, 'Entr.')
     .replace(NAME_RE, '').replace(/\s+([—–-])\s*$/, '').replace(/\s+/g, ' ').trim().slice(0, 48);
 }
 const dayShort = (d) => `${d.getDate()} ${MON[d.getMonth()]}`;
@@ -204,7 +207,7 @@ function dayCell(d, now, opts) {
   if (key === todayKey) label += ' · auj.';
   else if (key === ymd(addDays(new Date(now), 1)) && opts.focus === key) label += ' · demain';
   const max = opts.max || 5;
-  const shown = items.filter((e) => !(e.sd && e.sd < key && key !== opts.weekStart)); // multi-day: once per week
+  const shown = items.filter((e) => !(e.sd && e.sd < key && key !== opts.weekStart && key !== todayKey)); // multi-day: once per week, and on today
   const html = shown.slice(0, max).map((e) => evHtml(e, key, now)).join('');
   const more = shown.length > max ? `<span class="more">+${shown.length - max}</span>` : '';
   return `<div class="${cls.join(' ')}"><span class="dl">${label}</span>${html}${more}</div>`;
