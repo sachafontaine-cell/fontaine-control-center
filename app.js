@@ -2,7 +2,7 @@
  * Snappy by design: the last data is saved on the tablet and drawn instantly; Google is only
  * asked in the background, and every tap changes the screen first and saves afterwards. */
 'use strict';
-const VERSION = '0.2.0';
+const VERSION = '0.2.1';
 
 // ---------------------------------------------------------------- config & storage
 const qs = new URLSearchParams(location.search);
@@ -382,10 +382,10 @@ function applyMode() {
 $('#night').addEventListener('click', () => { peekUntil = Date.now() + 15000; applyMode(); setTimeout(applyMode, 15100); });
 
 // ---------------------------------------------------------------- rule screensaver (wall only)
-// After 40 s without a touch on the home screen, one house rule fills the screen (a new one each
-// time). When someone walks up and the screen wakes, they see it for a few seconds, then home.
+// After 40 s without a touch on the home screen, all the house rules fill the screen.
+// When someone walks up and the screen wakes, they see them for a few seconds, then home.
 if (!$('#saver')) document.body.insertAdjacentHTML('beforeend', '<div id="saver" hidden></div>');
-let saverOn = false, saverTimer, saverHide, ruleIdx = store.get('ruleIdx', 0);
+let saverOn = false, saverTimer, saverHide;
 function armSaver() {
   clearTimeout(saverTimer);
   if (!WALL()) return;
@@ -394,10 +394,8 @@ function armSaver() {
 function showSaver() {
   const rules = (S && S.rules) || [];
   if (!rules.length || route !== '' || busy() || mode() !== 'day' || !$('#night').hidden) { armSaver(); return; }
-  const i = ruleIdx % rules.length, r = rules[i];
-  ruleIdx = i + 1; store.set('ruleIdx', ruleIdx);
   const el = $('#saver');
-  el.innerHTML = `<div class="sv"><div class="label">Règle de la maison · ${i + 1}/${rules.length}</div><div class="svn">${i + 1}</div><div class="svt">${esc(r.t)}</div><div class="svd">${esc(r.d)}</div></div><div class="svf">Touchez pour revenir</div>`;
+  el.innerHTML = `<div class="sv"><div class="label">Règles de la maison</div><ol class="svl">${rules.map((r, i) => `<li><span class="svn">${i + 1}</span><span><b>${esc(r.t)}</b><span>${esc(r.d)}</span></span></li>`).join('')}</ol></div><div class="svf">Touchez pour revenir</div>`;
   el.hidden = false; saverOn = true;
 }
 function hideSaver() { clearTimeout(saverHide); $('#saver').hidden = true; saverOn = false; armSaver(); }
@@ -515,7 +513,9 @@ function series(e) { // a title family that shows up 4+ times (a team's schedule
   if (SERIES_OF !== S) { SERIES = new Map(); SERIES_OF = S; S.events.forEach((x) => SERIES.set(head3(x.t), (SERIES.get(head3(x.t)) || 0) + 1)); }
   return (SERIES.get(head3(e.t)) || 0) >= 4;
 }
-const bigEvent = (e) => !e.rec && !e.hol && !ROUTINE.test(e.t) && (FUN.test(e.t) || (!!e.sd && !e.team && !series(e)));
+// The babysitter coming always counts, even when it repeats.
+const SITTER = /baby-?sit|sitter|nanny|gardienne|gardiennage/i;
+const bigEvent = (e) => SITTER.test(e.t) || !e.rec && !e.hol && !ROUTINE.test(e.t) && (FUN.test(e.t) || (!!e.sd && !e.team && !series(e)));
 function soonList(from, max) {
   const out = [], seen = new Set(), end = addDays(from, 120);
   for (let x = new Date(from); x < end && out.length < max; x = addDays(x, 1)) {
@@ -836,6 +836,15 @@ function phoneWho() {
     ${['Pa', 'Ma'].map((id) => `<button class="pwb tap" data-me="${id}" style="border-color:${P[id].c}">${av(id, 44)}${P[id].n}</button>`).join('')}
     <button class="ver tap" data-update>v${VERSION}${DEMO ? ' · démo' : ''} ↻</button></div>`;
 }
+// "Add to home screen": Android offers a real install button; iPhone needs Share → Sur l'écran d'accueil.
+let installEvt = null;
+addEventListener('beforeinstallprompt', (e) => { e.preventDefault(); installEvt = e; if (PHONE() && !busy()) render(); });
+addEventListener('appinstalled', () => { installEvt = null; store.set('installed', true); if (PHONE()) render(); });
+const INSTALLED = () => matchMedia('(display-mode: standalone)').matches || navigator.standalone === true || store.get('installed', false);
+function installCard() {
+  if (INSTALLED() || store.get('noInstall', false)) return '';
+  return `<section class="card panel pinst"><img src="icons/icon-192.png" alt="" width="48" height="48"><span class="grow"><b>L'icône sur votre téléphone</b><span class="hint">Ouvre l'app d'un toucher, en plein écran</span></span><button class="btn gold tap" data-install>Ajouter</button><button class="tap pinx" data-noinstall aria-label="Plus tard">${I.x}</button></section>`;
+}
 function phoneTabs(r) {
   const on = (x) => (x.includes(r) ? ' class="on"' : '');
   return `<nav class="pnav"><a${on([''])} href="#">${I.home}Accueil</a><a${on(['cal'])} href="#cal">${I.cal}Agenda</a><a${on(['repas', 'votes'])} href="#repas">${I.food}Repas</a><a${on(['taches'])} href="#taches">${I.check2}Tâches</a><a href="${COZI()}">${I.cart}Courses</a></nav>`;
@@ -859,6 +868,7 @@ function phoneHome() {
   const cook = m ? COOK[m.cook] || 'Pa' : null;
   return `<div class="page phone">
     <header class="phead"><div><h1 class="pgreet">${d.getHours() >= 17 ? 'Bonsoir' : 'Bonjour'} ${esc(P[ME].n)}</h1><div class="hint">${DOWL[d.getDay()]} ${d.getDate()} ${MONL[d.getMonth()]}</div></div><button class="tap pme" data-switch aria-label="Changer de personne">${av(ME, 40)}</button></header>
+    ${installCard()}
     <a class="card panel pdin tap" href="#repas"><span class="label">Ce soir</span><span class="pdish">${m && m.dish ? esc(m.dish) : 'À choisir'}${m && m.salade ? ' <span class="tag">+ salade</span>' : ''}</span>${m ? `<span class="hint"><span class="dot" style="background:${P[cook].c}"></span>${esc(m.cook)} cuisine</span>` : ''}</a>
     ${S.vote ? `<a class="card panel prow pvote tap" href="#votes"><span>${voted ? 'Votes de la semaine prochaine · fait ✓' : '<b>Votez</b> pour les repas de la semaine prochaine'}</span><span class="hint">ferme ${DOW[new Date(S.vote.closes).getDay()]} ${hm(S.vote.closes)} ›</span></a>` : ''}
     <section class="card panel"><div class="label">Au programme</div>${days || '<div class="none">Rien cette semaine</div>'}<a class="hint more2" href="#cal">Tout l'agenda ›</a></section>
@@ -873,9 +883,15 @@ function phoneHome() {
 
 // ---------------------------------------------------------------- taps (one listener for everything)
 document.addEventListener('click', (ev) => {
-  const t = ev.target.closest('[data-cwho],[data-cclear],[data-cozi],[data-pf],[data-pclear],[data-psort],[data-prand],[data-day],[data-task],[data-seen],[data-ev],[data-close],[data-dish],[data-pick],[data-voter],[data-vote],[data-update],[data-me],[data-switch],[data-to],[data-send],[data-retry]');
+  const t = ev.target.closest('[data-install],[data-noinstall],[data-cwho],[data-cclear],[data-cozi],[data-pf],[data-pclear],[data-psort],[data-prand],[data-day],[data-task],[data-seen],[data-ev],[data-close],[data-dish],[data-pick],[data-voter],[data-vote],[data-update],[data-me],[data-switch],[data-to],[data-send],[data-retry]');
   if (!t) return;
   const ds = t.dataset;
+  if ('install' in ds) {
+    if (installEvt) { installEvt.prompt(); installEvt.userChoice.then(() => { installEvt = null; render(); }); }
+    else toast(/iPhone|iPad/.test(navigator.userAgent) ? "Touchez Partager ⬆ puis « Sur l'écran d'accueil »" : "Menu ⋮ du navigateur puis « Ajouter à l'écran d'accueil »");
+    return;
+  }
+  if ('noinstall' in ds) { store.set('noInstall', true); render(); return; }
   if (ds.cwho) { CF.who = CF.who === ds.cwho ? '' : ds.cwho; cfTouch(); render(); return; }
   if ('cclear' in ds) { CF = { q: '', who: '' }; clearTimeout(cfTimer); render(); return; }
   if ('cozi' in ds) { try { window.fully.startApplication('com.cozi.androidfree'); } catch { location.href = 'https://my.cozi.com/'; } return; }
