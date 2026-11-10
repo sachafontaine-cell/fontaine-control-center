@@ -1,28 +1,15 @@
 {
+  "id": "/fontaine-control-center/",
   "name": "Famille Fontaine",
   "short_name": "Fontaine",
-  "start_url": "./",
-  "scope": "./",
-  "display": "fullscreen",
-  "orientation": "landscape",
+  "start_url": "/fontaine-control-center/",
+  "scope": "/fontaine-control-center/",
+  "display": "standalone",
   "background_color": "#0E1116",
   "theme_color": "#0D235A",
   "icons": [
-    {
-      "src": "icons/icon-192.png",
-      "sizes": "192x192",
-      "type": "image/png"
-    },
-    {
-      "src": "icons/icon-512.png",
-      "sizes": "512x512",
-      "type": "image/png"
-    },
-    {
-      "src": "icons/icon-maskable.png",
-      "sizes": "512x512",
-      "type": "image/png",
-      "purpose": "maskable"
-    }
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "icons/icon-maskable.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
   ]
 }
