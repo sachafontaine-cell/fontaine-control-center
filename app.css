@@ -232,3 +232,11 @@ a { text-decoration: none; }
   .soon { height: auto; padding: 12px; white-space: normal; flex-wrap: wrap; }
   .rules { width: 100%; }
 }
+
+/* phone: who are you? */
+.pwho { min-height: 100vh; display: flex; flex-direction: column; justify-content: center; gap: 16px; }
+.pwq { font-size: 26px; font-weight: 700; text-align: center; margin-bottom: 8px; }
+.pwb { display: flex; align-items: center; gap: 14px; height: 76px; padding: 0 18px; border: 2px solid; border-radius: 16px; background: var(--panel); color: var(--text); font-size: 22px; font-weight: 700; }
+.pwho .ver { align-self: center; margin-top: 12px; }
+.pme { display: flex; align-items: center; gap: 8px; background: none; border: 0; color: var(--text); font-size: 20px; font-weight: 700; padding: 0; }
+.pme .hint { font-size: 14px; font-weight: 400; }

@@ -2,7 +2,7 @@
  * Snappy by design: the last data is saved on the tablet and drawn instantly; Google is only
  * asked in the background, and every tap changes the screen first and saves afterwards. */
 'use strict';
-const VERSION = '0.1.6';
+const VERSION = '0.1.7';
 
 // ---------------------------------------------------------------- config & storage
 const qs = new URLSearchParams(location.search);
@@ -379,6 +379,7 @@ function repasPage() {
 let voter = null, voterTimer, flash = '';
 function votesPage() {
   const v = S.vote;
+  if (PHONE() && ME) voter = ME;
   const closes = new Date(v.closes);
   const mon = parse(v.week);
   const who = ['M', 'F', 'Pa', 'Ma'].map((id) => `<button class="who tap" data-voter="${id}" style="${voter === id ? `border-color:${P[id].c};background:var(--panel2)` : ''}">${av(id)}${P[id].n}</button>`).join('');
@@ -395,7 +396,7 @@ function votesPage() {
     return `<div class="grp"><div class="gh"><span class="dot" style="background:${P[gid].c};width:12px;height:12px"></span>${esc(title)}<span class="gs">${NIGHTS[g.group]} — ${g.max === 1 ? '1 vote' : '3 votes max'}</span><span class="gc">${voter ? `${P[voter].n} : ${mine}/${g.max}` : ''}</span></div><div class="tiles">${tiles}</div></div>`;
   }).join('');
   return `<div class="page">${topBar('Repas', '', tabs(2))}
-    <div class="whos"><span class="hint" style="font-size:17px">Qui vote ?</span>${who}<span class="hint ${flash ? 'flash' : ''}" style="margin-left:auto">${flash || `Semaine du ${mon.getDate()} ${MON[mon.getMonth()]} · ferme ${DOW[closes.getDay()]} ${hm(closes.getTime())}`}</span></div>
+    <div class="whos">${PHONE() && ME ? `<span class="hint" style="font-size:15px">Vous votez : ${P[ME].n}</span>` : `<span class="hint" style="font-size:17px">Qui vote ?</span>${who}`}<span class="hint ${flash ? 'flash' : ''}" style="margin-left:auto">${flash || `Semaine du ${mon.getDate()} ${MON[mon.getMonth()]} · ferme ${DOW[closes.getDay()]} ${hm(closes.getTime())}`}</span></div>
     <div class="scroll">${groups}</div></div>`;
 }
 
@@ -511,11 +512,18 @@ const MODALS = {
 function openModal(m, ttl) { modal = m; clearTimeout(modalTimer); if (ttl) modalTimer = setTimeout(() => { modal = null; render(); }, ttl); render(); }
 
 // ---------------------------------------------------------------- phone (parents)
-let phoneFrom = store.get('from', 'Papa'), phoneTo = 'Tous';
+// The phone asks once "Papa or Maman?" and remembers it (tap the name to change).
+let ME = store.get('me', null), phoneTo = 'Tous';
+function phoneWho() {
+  return `<div class="page phone pwho"><div class="pwq">Qui êtes-vous ?</div>
+    ${['Pa', 'Ma'].map((id) => `<button class="pwb tap" data-me="${id}" style="border-color:${P[id].c}">${av(id, 44)}${P[id].n}</button>`).join('')}
+    <button class="ver tap" data-update>v${VERSION}${DEMO ? ' · démo' : ''} ↻</button></div>`;
+}
 function phoneHome() {
+  if (!ME) return phoneWho();
   const d = new Date(), todayKey = ymd(d);
   const m = S.menu.find((x) => x.date === todayKey);
-  const voted = S.vote && Object.values(S.vote.votes).some((l) => l.includes(COOK[phoneFrom]));
+  const voted = S.vote && Object.values(S.vote.votes).some((l) => l.includes(ME));
   let days = '';
   for (let i = 0; i < 7; i++) {
     const x = addDays(d, i), items = itemsFor(ymd(x));
@@ -523,9 +531,8 @@ function phoneHome() {
     days += `<div class="pday">${i === 0 ? "AUJOURD'HUI" : i === 1 ? 'DEMAIN' : (DOWL[x.getDay()] + ' ' + x.getDate()).toUpperCase()}</div>` + items.map((e) => `<button class="prow tap" data-ev="${esc(e.id)}"><span class="dot" style="background:${(P[e.who] || P.Fam).c}"></span><span class="pt num">${e.s ? hm(e.s) : 'Journée'}</span><span style="text-align:left">${esc(short(e.t))}</span></button>`).join('');
   }
   return `<div class="page phone">
-    <header style="display:flex;justify-content:space-between;align-items:center;height:44px"><span style="font-size:22px;font-weight:700">Famille Fontaine</span><span class="hint">${DOW[d.getDay()]} ${d.getDate()} ${MON[d.getMonth()]}</span></header>
+    <header style="display:flex;justify-content:space-between;align-items:center;height:44px"><button class="tap pme" data-switch>${av(ME, 28)}<span>${P[ME].n}</span><span class="hint">· ${DOW[d.getDay()]} ${d.getDate()} ${MON[d.getMonth()]}</span></button><button class="ver tap" data-update>v${VERSION}${DEMO ? ' · démo' : ''} ↻</button></header>
     <section class="card panel"><label class="label" for="msg">Message pour le mur</label>
-      <div class="seg">${['Papa', 'Maman'].map((f) => `<button class="tap${phoneFrom === f ? ' on' : ''}" data-from="${f}">De ${f}</button>`).join('')}</div>
       <input id="msg" type="text" maxlength="200" placeholder="Ex. : Piano annulé ce soir" autocomplete="off">
       <div class="seg">${['Tous', P.M.n, P.F.n].map((t) => `<button class="tap${phoneTo === t ? ' on' : ''}" data-to="${t}">${t}</button>`).join('')}</div>
       <button class="btn gold tap" data-send style="justify-content:center">Envoyer au mur</button></section>
@@ -538,7 +545,7 @@ function phoneHome() {
 
 // ---------------------------------------------------------------- taps (one listener for everything)
 document.addEventListener('click', (ev) => {
-  const t = ev.target.closest('[data-task],[data-seen],[data-ev],[data-close],[data-dish],[data-pick],[data-voter],[data-vote],[data-update],[data-from],[data-to],[data-send],[data-retry]');
+  const t = ev.target.closest('[data-task],[data-seen],[data-ev],[data-close],[data-dish],[data-pick],[data-voter],[data-vote],[data-update],[data-me],[data-switch],[data-to],[data-send],[data-retry]');
   if (!t) return;
   const ds = t.dataset;
   if (ds.task) { const [who, task, pts, done] = ds.task.split('|'); act({ a: 'task', who, task, pts: +pts, done: done === '1' }); }
@@ -558,9 +565,10 @@ document.addEventListener('click', (ev) => {
     flash = ''; act({ a: 'vote', week: S.vote.week, dish, who: voter, on });
   }
   else if ('update' in ds) checkUpdate(true);
-  else if (ds.from) { phoneFrom = ds.from; store.set('from', phoneFrom); render(); }
+  else if (ds.me) { ME = ds.me; store.set('me', ME); render(); }
+  else if ('switch' in ds) { ME = null; store.set('me', null); render(); }
   else if (ds.to) { phoneTo = ds.to; render(); }
-  else if ('send' in ds) { const i = $('#msg'); const text = i && i.value.trim(); if (text) { act({ a: 'message', from: phoneFrom, to: phoneTo, text }); toast('Envoyé au mur'); } }
+  else if ('send' in ds) { const i = $('#msg'); const text = i && i.value.trim(); if (text) { act({ a: 'message', from: P[ME].n, to: phoneTo, text }); toast('Envoyé au mur'); } }
   else if ('retry' in ds) { voice.state = 'sending'; render(); voice.upload(); }
 });
 // Hold-to-record: press starts, release sends, sliding off cancels.
