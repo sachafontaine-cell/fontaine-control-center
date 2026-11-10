@@ -2,7 +2,7 @@
  * Snappy by design: the last data is saved on the tablet and drawn instantly; Google is only
  * asked in the background, and every tap changes the screen first and saves afterwards. */
 'use strict';
-const VERSION = '0.1.5';
+const VERSION = '0.1.6';
 
 // ---------------------------------------------------------------- config & storage
 const qs = new URLSearchParams(location.search);
@@ -588,16 +588,28 @@ async function checkUpdate(manual) {
   try {
     const reg = await navigator.serviceWorker?.getRegistration();
     await reg?.update();
-    const found = !!(reg && (reg.installing || reg.waiting)) || updateReady;
+    let found = !!(reg && (reg.installing || reg.waiting)) || updateReady;
+    if (manual && !found) {
+      // Safety net: if GitHub has another version than the one running, start fresh.
+      const txt = await (await fetch('sw.js?t=' + Date.now(), { cache: 'no-store' })).text();
+      const live = (txt.match(/VERSION = '([^']+)'/) || [])[1];
+      if (live && live !== VERSION) { found = true; await hardReset(reg); }
+    }
     if (manual) toast(found ? 'Mise à jour…' : `À jour · v${VERSION}`);
     if (found && manual) setTimeout(() => location.reload(), 1200);
   } catch { if (manual) toast('Pas de connexion'); }
 }
+async function hardReset(reg) {
+  await Promise.all((await caches.keys()).map((k) => caches.delete(k)));
+  await reg?.unregister();
+  await Promise.all(['index.html', 'app.css', 'app.js', 'config.js', 'demo.js', 'sw.js'].map((u) => fetch(u, { cache: 'reload' }).catch(() => {})));
+}
 if ('serviceWorker' in navigator && !DEMO_LOCAL()) {
-  const had = !!navigator.serviceWorker.controller;
+  let had = !!navigator.serviceWorker.controller;
   navigator.serviceWorker.register('sw.js').catch(() => {});
   navigator.serviceWorker.addEventListener('controllerchange', () => {
-    if (!had || updateReady) return;
+    if (!had) { had = true; return; } // first install: nothing to reload
+    if (updateReady) return;
     updateReady = true;
     if (route === '' && !busy()) location.reload();
     else toast('Nouvelle version', { label: 'Recharger', run: () => location.reload() });
