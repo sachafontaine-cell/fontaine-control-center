@@ -2,7 +2,7 @@
  * Snappy by design: the last data is saved on the tablet and drawn instantly; Google is only
  * asked in the background, and every tap changes the screen first and saves afterwards. */
 'use strict';
-const VERSION = '0.3.2';
+const VERSION = '0.3.3';
 
 // ---------------------------------------------------------------- config & storage
 const qs = new URLSearchParams(location.search);
@@ -791,18 +791,24 @@ function czAddTyped() {
   cz.q = '';
   renderModal(); const n = $('#czq'); if (n) n.focus();
 }
+// Snappy: the sheet closes at once and the items go to Cozi in the background (a few seconds).
+// If Cozi refuses, a "Réessayer" button reopens the sheet with the same items.
 async function czSend() {
   const items = cz.items.filter((x) => x.on).map((x) => x.t);
-  if (!items.length || cz.sending) return;
+  if (!items.length) return;
   if (!cz.who) { toast("Touchez d'abord votre nom"); return; }
-  cz.sending = true; renderModal();
+  const sent = { ...cz, items: cz.items.map((x) => ({ ...x })), sending: false };
+  cz = null; modal = null; renderModal();
+  toast(`${items.length} article${items.length > 1 ? 's' : ''} → Cozi…`);
   try {
-    let j = { ok: true, added: [{ list: cz.store === 'Auto' ? 'Aldi' : cz.store, n: items.length }] };
-    if (!DEMO) j = await (await fetch(API, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ a: 'cozi', k: KEY, who: cz.who, store: cz.store, items, dish: cz.dish }) })).json();
+    let j = { ok: true, added: [{ list: sent.store === 'Auto' ? 'Aldi' : sent.store, n: items.length }] };
+    if (DEMO) await new Promise((r) => setTimeout(r, 800));
+    else j = await (await fetch(API, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ a: 'cozi', k: KEY, who: sent.who, store: sent.store, items, dish: sent.dish }) })).json();
     if (j.error) throw new Error(j.error);
-    cz = null; modal = null; renderModal();
-    toast(`Ajouté à Cozi · ${j.added.map((a) => `${a.n} → ${a.list}`).join(' · ')}`);
-  } catch (e) { cz.sending = false; renderModal(); toast(`Pas envoyé · ${String(e.message || 'pas de connexion').slice(0, 60)}`); }
+    toast(`Ajouté à Cozi ✓ ${j.added.map((a) => `${a.n} → ${a.list}`).join(' · ')}`);
+  } catch (e) {
+    toast(`Pas envoyé à Cozi · ${String(e.message || 'pas de connexion').slice(0, 40)}`, { label: 'Réessayer', run: () => { $('#toast').hidden = true; cz = sent; openModal({ kind: 'cozi' }); } });
+  }
 }
 MODALS.cozi = () => {
   const n = cz.items.filter((x) => x.on).length;
