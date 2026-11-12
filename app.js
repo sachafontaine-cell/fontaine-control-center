@@ -2,7 +2,7 @@
  * Snappy by design: the last data is saved on the tablet and drawn instantly; Google is only
  * asked in the background, and every tap changes the screen first and saves afterwards. */
 'use strict';
-const VERSION = '0.3.3';
+const VERSION = '0.3.5';
 
 // ---------------------------------------------------------------- config & storage
 const qs = new URLSearchParams(location.search);
@@ -422,6 +422,8 @@ addEventListener('pointerdown', touched, { passive: true });
 function render() {
   if (!S) { $('#app').innerHTML = `<div class="boot">${DEMO ? 'Famille Fontaine' : badKey ? esc(badKey) : 'Chargement…'}</div>`; return; }
   const r = route.split('/')[0];
+  // Home-screen shortcut "Courses": opens the Cozi sheet straight away.
+  if (r === 'courses') { history.replaceState(null, '', location.pathname + location.search); route = ''; if (!S.cozi) { location.href = COZI(); return; } render(); openCozi(''); return; }
   const view = { '': PHONE() ? phoneHome : home, cal: calPage, repas: repasPage, votes: votesPage, taches: tachesPage, regles: reglesPage, contacts: contactsPage, voix: voicePage }[r] || home;
   document.documentElement.classList.toggle('ph', PHONE());
   $('#app').innerHTML = view() + (PHONE() && ME && r !== 'voix' ? phoneTabs(r) : '');
@@ -891,7 +893,7 @@ function phoneWho() {
     ${['Pa', 'Ma'].map((id) => `<button class="pwb tap" data-me="${id}" style="border-color:${P[id].c}">${av(id, 44)}${P[id].n}</button>`).join('')}
     <button class="ver tap" data-update>v${VERSION}${DEMO ? ' · démo' : ''} ↻</button></div>`;
 }
-// "Add to home screen": Android offers a real install button; iPhone needs Share → Sur l'écran d'accueil.
+// "Add to home screen": Chrome on Android offers a real install button.
 let installEvt = null;
 addEventListener('beforeinstallprompt', (e) => { e.preventDefault(); installEvt = e; if (PHONE() && !busy()) render(); });
 addEventListener('appinstalled', () => { installEvt = null; store.set('installed', true); if (PHONE()) render(); });
@@ -923,6 +925,7 @@ function phoneHome() {
   const cook = m ? COOK[m.cook] || 'Pa' : null;
   return `<div class="page phone">
     <header class="phead"><div><h1 class="pgreet">${d.getHours() >= 17 ? 'Bonsoir' : 'Bonjour'} ${esc(P[ME].n)}</h1><div class="hint">${DOWL[d.getDay()]} ${d.getDate()} ${MONL[d.getMonth()]}</div></div><button class="tap pme" data-switch aria-label="Changer de personne">${av(ME, 40)}</button></header>
+    ${DEMO && !qs.has('demo') ? '<section class="card panel"><b>Famille d\'exemple</b><div class="hint">Ouvrez une fois votre lien famille (…/?k=…) dans ce navigateur pour voir vos vraies données.</div></section>' : ''}
     ${installCard()}
     <a class="card panel pdin tap" href="#repas"><span class="label">Ce soir</span><span class="pdish">${m && m.dish ? esc(m.dish) : 'À choisir'}${m && m.salade ? ' <span class="tag">+ salade</span>' : ''}</span>${m ? `<span class="hint"><span class="dot" style="background:${P[cook].c}"></span>${esc(m.cook)} cuisine</span>` : ''}</a>
     ${S.vote ? `<a class="card panel prow pvote tap" href="#votes"><span>${voted ? 'Votes de la semaine prochaine · fait ✓' : '<b>Votez</b> pour les repas de la semaine prochaine'}</span><span class="hint">ferme ${DOW[new Date(S.vote.closes).getDay()]} ${hm(S.vote.closes)} ›</span></a>` : ''}
@@ -952,7 +955,7 @@ document.addEventListener('click', (ev) => {
   if ('pnone' in ds) { act({ a: 'dish', date: modal.date, cook: modal.cook, dish: '' }); modal = null; render(); return; }
   if ('install' in ds) {
     if (installEvt) { installEvt.prompt(); installEvt.userChoice.then(() => { installEvt = null; render(); }); }
-    else toast(/iPhone|iPad/.test(navigator.userAgent) ? "Touchez Partager ⬆ puis « Sur l'écran d'accueil »" : "Menu ⋮ du navigateur puis « Ajouter à l'écran d'accueil »");
+    else toast("Menu ⋮ de Chrome puis « Installer l'application »");
     return;
   }
   if ('noinstall' in ds) { store.set('noInstall', true); render(); return; }

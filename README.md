@@ -4,7 +4,7 @@ Family wall tablet (Android, Fully Kiosk Browser). Plain HTML/CSS/JS on GitHub P
 **No family data lives in this public repository**: names, events, contacts and settings come from a private Google Apps Script that is not stored here. `?demo` shows a made-up family.
 
 - **See it now with sample data:** https://sachafontaine-cell.github.io/fontaine-control-center/?demo
-- **Version / update:** the small `v0.3.3 ↻` at the bottom right checks for an update right away. The tablet also checks by itself when someone walks up and every 30 minutes, and applies new versions on the home screen.
+- **Version / update:** the small `v0.3.5 ↻` at the bottom right checks for an update right away. The tablet also checks by itself when someone walks up and every 30 minutes, and applies new versions on the home screen.
 
 ## One-time setup
 
@@ -48,6 +48,12 @@ https://sachafontaine-cell.github.io/fontaine-control-center/?k=KEY
 - **House rules screensaver:** after 40 s without a touch on the home screen, all the house rules fill the screen. Keep the screen-off timer above 40 s so the kids get to see them; when the screen wakes, they stay 8 s, or until someone touches the screen.
 - Only the wall tablet goes dark at night and returns to the home screen after 90 s (it is recognized by Fully Kiosk). Phones and computers never do. To try the wall behavior in a normal browser, add `&wall` to the link once.
 - Settings → Battery: turn on a charge limit if the tablet offers one.
+
+### 5. Phone app + shortcuts (2 min per phone, Android + Chrome)
+Open the family link once → on Accueil tap **Ajouter** (or Chrome ⋮ → *Installer l'application*). The **Fontaine** icon opens full screen.
+Shortcuts: long-press the icon → **Agenda / Repas / Tâches / Courses**. Drag one to the home screen to get its own icon (**Courses** opens straight into the Cozi list).
+
+If an icon ever shows the made-up family ("Famille d'exemple" card), open the family link again in that browser.
 
 ## Where to change what (one place each)
 | Thing | Change it in |

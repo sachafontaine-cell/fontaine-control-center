@@ -414,7 +414,8 @@ html.ph .pchips button { flex: none; }
 html.ph .pfilters { max-height: none; }
 html.ph .psort { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; }
 html.ph .psort button { flex: none; }
-html.ph .calp .ctools { flex-direction: column; align-items: stretch; }
+html.ph .calp .ctools { flex-direction: column; align-items: stretch; min-width: 0; max-width: 100%; }
+html.ph .calp .ctools > * { min-width: 0; max-width: 100%; }
 html.ph .csearch { flex: none; min-width: 0; padding: 0 12px; }
 html.ph .cwho { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; }
 html.ph .cwho .pc { flex: none; min-height: 40px; font-size: 14px; padding: 0 12px; }
