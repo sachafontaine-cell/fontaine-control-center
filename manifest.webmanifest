@@ -56,6 +56,18 @@
           "sizes": "192x192"
         }
       ]
+    },
+    {
+      "name": "Courses",
+      "short_name": "Courses",
+      "description": "Ajouter à la liste Cozi",
+      "url": "/fontaine-control-center/#courses",
+      "icons": [
+        {
+          "src": "icons/icon-192.png",
+          "sizes": "192x192"
+        }
+      ]
     }
   ]
 }
