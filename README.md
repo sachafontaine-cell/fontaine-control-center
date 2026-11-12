@@ -4,7 +4,7 @@ Family wall tablet (Android, Fully Kiosk Browser). Plain HTML/CSS/JS on GitHub P
 **No family data lives in this public repository**: names, events, contacts and settings come from a private Google Apps Script that is not stored here. `?demo` shows a made-up family.
 
 - **See it now with sample data:** https://sachafontaine-cell.github.io/fontaine-control-center/?demo
-- **Version / update:** the small `v0.3.5 ↻` at the bottom right checks for an update right away. The tablet also checks by itself when someone walks up and every 30 minutes, and applies new versions on the home screen.
+- **Version / update:** the small `v0.3.6 ↻` at the bottom right checks for an update right away. The tablet also checks by itself when someone walks up and every 30 minutes, and applies new versions on the home screen.
 
 ## One-time setup
 
@@ -23,6 +23,8 @@ The app is then at `https://sachafontaine-cell.github.io/fontaine-control-center
 ### 2b. Cozi groceries (optional, 2 min)
 In the Apps Script editor: **Project Settings → Script Properties → Add**: `COZI_USER` = your Cozi login email, `COZI_PASS` = your Cozi password. They stay in Google, never in this repository. Then pick **coziTest** in the function list and **Run** (approve the new permissions): the log lists your Cozi shopping lists.
 Three Cozi shopping lists: **Aldi**, **Costco**, **Balboa/99Ranch/TJ** (the names must match). "Auto" sends specialty ingredients to Balboa/99Ranch/TJ and everything else to Aldi. Kids' items get their name in brackets. Cozi has no official API: if Cozi changes its service, adding stops working until the script is updated (the Courses button still opens Cozi).
+
+**Code.gs v0.3.5 (Chef Luc):** adds the coming two weeks of dinners and the "Envoyés" tab (dinners already sent to Cozi) for Chef Luc. The tab is created by itself the first time.
 
 **When `Code.gs` changes later:** paste the new file over the old one, save, then **Deploy → Manage deployments → ✎ (edit) → Version: New version → Deploy**. The address stays the same, so nothing changes on the tablet or phones.
 
@@ -67,7 +69,8 @@ If an icon ever shows the made-up family ("Famille d'exemple" card), open the fa
 | School names on the weather tiles | Réglages → the two "Météo …" rows (the first part is the name shown) |
 | Dinner | Repas screen (votes for next week; the cook swaps this week's dish) |
 | Messages to the kids | the family link on a parent's phone |
-| Groceries | Cozi — added from the Courses button or a dinner's Ingrédients button (ingredients come from the newest Chef Luc recipe file in Drive) |
+| Groceries | Cozi — added from the Courses button, a dinner's Ingrédients button, or Chef Luc's weekly list (ingredients come from the newest Chef Luc recipe file in Drive). A dinner already sent from either app shows **Ingrédients ✓** and asks before sending again |
+| Cooking a dinner | **Cuisiner** on a dinner (Repas) or **Cuisiner ce soir** (phone) opens the recipe in [Chef Luc](https://sachafontaine-cell.github.io/Chef-Luc/) |
 
 Votes close every **Thursday at 19:00**: the top dishes become next week's menu and next week's options appear.
 

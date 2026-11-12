@@ -80,6 +80,8 @@ window.FCC_DEMO = function () {
       { name: 'Neighbor', role: 'Trusted neighbor', phone: '555-0102', kind: 'help' },
       { name: 'Vet', role: 'Animal clinic', phone: '555-0103', kind: 'help' },
     ],
+    // The day after tomorrow's dinner already went to Cozi (from Chef Luc), to show the mark.
+    sent: [{ date: ymd(day(5)), dish: dishes[5], at: Date.now() - 3 * 3600000, by: 'Chef Luc' }],
     voiceTo: 'Papa', cozi: true, weather: [{ who: 'M', label: 'École A', lat: 32.85, lon: -117.2 }, { who: 'F', label: 'École B', lat: 32.75, lon: -117.1 }],
     people: { M: 'Léa', F: 'Hugo', Pa: 'Papa', Ma: 'Maman' },
   };

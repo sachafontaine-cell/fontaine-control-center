@@ -159,7 +159,7 @@ a { text-decoration: none; }
 .tabs { margin-left: auto; display: flex; gap: 4px; padding: 4px; background: var(--panel); border-radius: 16px; }
 .tabs a { min-height: 50px; padding: 0 20px; display: flex; align-items: center; border-radius: 12px; color: #C9D3DD; font-size: 17px; font-weight: 600; }
 .tabs a.on { background: var(--gold-bg); color: var(--gold); font-weight: 700; }
-.mrow { height: 76px; padding: 0 20px; display: grid; grid-template-columns: 120px 180px minmax(0, 1fr) 170px; align-items: center; border-radius: 16px; background: var(--panel); }
+.mrow { height: 76px; padding: 0 20px; display: grid; grid-template-columns: 120px 180px minmax(0, 1fr) auto; align-items: center; border-radius: 16px; background: var(--panel); }
 .mrow.past { background: var(--past); color: var(--faint); }
 .mrow.today { outline: 2px solid var(--gold); outline-offset: -2px; }
 .mrow .md { font-size: 19px; }
@@ -428,3 +428,9 @@ html.ph #toast { bottom: calc(env(safe-area-inset-bottom) + 84px); }
 .pwq { font-family: var(--serif, Georgia, serif); font-size: 30px; text-align: center; margin-bottom: 8px; }
 .pwb { display: flex; align-items: center; gap: 14px; height: 76px; padding: 0 18px; border: 2px solid; border-radius: 16px; background: var(--panel); color: var(--text); font-size: 22px; font-weight: 700; }
 .pwho .ver { align-self: center; margin-top: 12px; }
+
+/* Chef Luc link and "already sent to Cozi" */
+.macts { display: flex; gap: 8px; justify-self: end; align-items: center; }
+.mcart.sent { color: var(--muted); }
+.czwarn { margin: 0 0 10px; padding: 10px 12px; border-radius: 12px; background: var(--amber-bg); color: var(--amber); font-size: 15px; }
+html.ph .macts { justify-self: start; flex-wrap: wrap; }
