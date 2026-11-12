@@ -2,7 +2,7 @@
  * Snappy by design: the last data is saved on the tablet and drawn instantly; Google is only
  * asked in the background, and every tap changes the screen first and saves afterwards. */
 'use strict';
-const VERSION = '0.3.5';
+const VERSION = '0.3.6';
 
 // ---------------------------------------------------------------- config & storage
 const qs = new URLSearchParams(location.search);
@@ -38,7 +38,7 @@ function setPeople() {
 // Fill in anything missing, so one broken part of the Google data never blanks the screen.
 function normalize(s) {
   if (!s || typeof s !== 'object' || s.error) return null;
-  ['events', 'school', 'messages', 'menu', 'recipes', 'rules', 'contacts', 'weather'].forEach((k) => { if (!Array.isArray(s[k])) s[k] = []; });
+  ['events', 'school', 'messages', 'menu', 'recipes', 'rules', 'contacts', 'weather', 'sent'].forEach((k) => { if (!Array.isArray(s[k])) s[k] = []; });
   s.chores = Object.assign({ tasks: [], rewards: [], points: {}, week: {}, done: [] }, s.chores || {});
   if (!s.vote || !Array.isArray(s.vote.groups)) s.vote = null; else s.vote.votes = s.vote.votes || {};
   s.events = s.events.filter((e) => e && e.t && (e.s || e.sd));
@@ -610,7 +610,7 @@ function repasPage() {
     const cls = m.date < todayKey ? ' past' : m.date === todayKey ? ' today' : '';
     return `<div class="mrow${cls}"><span class="md">${DOW[d.getDay()]} ${d.getDate()}</span><span class="mc">${av(id)}${esc(m.cook)}</span>
       <button class="dish tap" data-dish="${m.date}|${esc(m.cook)}"><span>${m.dish ? esc(m.dish) : '<span style="color:var(--dim)">À choisir</span>'}</span>${m.salade ? '<span class="tag">+ salade</span>' : ''}</button>
-      ${S.cozi && m.dish && m.date >= todayKey ? `<button class="btn tap mcart" data-czdish="${esc(m.dish)}">${I.cart}Ingrédients</button>` : `<span class="hint">${m.date === todayKey ? 'Ce soir' : ''}</span>`}</div>`;
+      <span class="macts">${m.dish && m.date >= todayKey ? `<a class="btn tap mcart" href="${chefLuc(m.dish)}">${I.food}Cuisiner</a>` : ''}${S.cozi && m.dish && m.date >= todayKey ? `<button class="btn tap mcart${sentFor(m.date, m.dish) ? ' sent' : ''}" data-czdish="${m.date}|${esc(m.dish)}">${I.cart}Ingrédients${sentFor(m.date, m.dish) ? ' ✓' : ''}</button>` : `<span class="hint">${m.date === todayKey && !m.dish ? 'Ce soir' : ''}</span>`}</span></div>`;
   }).join('');
   return `<div class="page">${topBar('Repas', '', tabs(1))}<div class="scroll" style="gap:8px">${rows}<div class="hint">Le cuisinier touche son plat pour le changer.</div></div></div>`;
 }
@@ -774,13 +774,20 @@ const MODALS = {
       <div class="list">${pickList()}</div></section></div>`;
   },
 };
+// ---------------------------------------------------------------- Chef Luc (the cooking app, same address)
+// Opens the dish's recipe in Chef Luc. A dinner whose ingredients already went to Cozi, from either
+// app, is marked so they are not added twice.
+const chefLuc = (dish) => `/Chef-Luc/#/d/${encodeURIComponent(dish)}`;
+const foldName = (t) => String(t).normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+const sentFor = (date, dish) => (S.sent || []).find((x) => x.date === date && foldName(x.dish) === foldName(dish));
+
 // ---------------------------------------------------------------- groceries → Cozi
 // Kids' items get their name in brackets; a dinner's ingredients (from Chef Luc) go in together.
 const STORES = ['Auto', 'Aldi', 'Costco', 'Balboa/99Ranch/TJ'];
 const PANTRY = /\b(salt|sel|pepper|poivre|olive oil|oil|huile|water|eau|sugar|sucre|flour|farine|garlic powder|onion powder|paprika|cumin|cinnamon|cannelle|oregano|origan|baking (soda|powder)|vanilla|honey|miel|vinegar|vinaigre|soy sauce|ketchup|mustard|moutarde|mayonnaise|chili flakes|bay lea|thyme|thym|spice|[ée]pice)\b/i;
 let cz = null;
-function openCozi(dish) {
-  cz = { who: PHONE() && ME ? ME : '', store: 'Auto', items: [], dish: dish || '', loading: !!dish, sending: false };
+function openCozi(dish, date) {
+  cz = { who: PHONE() && ME ? ME : '', store: 'Auto', items: [], dish: dish || '', date: date || '', loading: !!dish, sending: false };
   openModal({ kind: 'cozi' });
   if (!dish) return;
   const done = (list) => { if (!cz || cz.dish !== dish) return; cz.loading = false; cz.items = list.map((t) => ({ t, on: !PANTRY.test(t) })); renderModal(); };
@@ -798,6 +805,8 @@ function czAddTyped() {
 async function czSend() {
   const items = cz.items.filter((x) => x.on).map((x) => x.t);
   if (!items.length) return;
+  // Already sent from either app: a second tap confirms.
+  if (cz.dish && cz.date && sentFor(cz.date, cz.dish) && !cz.confirm) { cz.confirm = true; renderModal(); return; }
   if (!cz.who) { toast("Touchez d'abord votre nom"); return; }
   const sent = { ...cz, items: cz.items.map((x) => ({ ...x })), sending: false };
   cz = null; modal = null; renderModal();
@@ -805,8 +814,9 @@ async function czSend() {
   try {
     let j = { ok: true, added: [{ list: sent.store === 'Auto' ? 'Aldi' : sent.store, n: items.length }] };
     if (DEMO) await new Promise((r) => setTimeout(r, 800));
-    else j = await (await fetch(API, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ a: 'cozi', k: KEY, who: sent.who, store: sent.store, items, dish: sent.dish }) })).json();
+    else j = await (await fetch(API, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ a: 'cozi', k: KEY, who: sent.who, store: sent.store, items, dish: sent.dish, date: sent.date, by: 'Control Center' }) })).json();
     if (j.error) throw new Error(j.error);
+    if (sent.dish && sent.date) { S.sent = [...(S.sent || []), { date: sent.date, dish: sent.dish, at: Date.now(), by: 'Control Center' }]; render(); }
     toast(`Ajouté à Cozi ✓ ${j.added.map((a) => `${a.n} → ${a.list}`).join(' · ')}`);
   } catch (e) {
     toast(`Pas envoyé à Cozi · ${String(e.message || 'pas de connexion').slice(0, 40)}`, { label: 'Réessayer', run: () => { $('#toast').hidden = true; cz = sent; openModal({ kind: 'cozi' }); } });
@@ -814,16 +824,18 @@ async function czSend() {
 }
 MODALS.cozi = () => {
   const n = cz.items.filter((x) => x.on).length;
+  const was = cz.dish && cz.date ? sentFor(cz.date, cz.dish) : null;
+  const warn = was ? `<div class="czwarn">Déjà envoyé à Cozi ${new Date(was.at).toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' })}${was.by ? ` (${esc(was.by)})` : ''}. Renvoyer ajoutera les articles une 2e fois.</div>` : '';
   const who = PHONE() && ME ? '' : `<div class="pgrp"><span class="pgl">Qui ?</span><div class="pchips">${['M', 'F', 'Pa', 'Ma'].map((k) => `<button class="tap${cz.who === k ? ' on' : ''}" data-czwho="${k}"><span class="dot" style="background:${P[k].c}"></span> ${P[k].n}</button>`).join('')}</div></div>`;
   const stores = `<div class="pgrp"><span class="pgl">Magasin</span><div class="pchips">${STORES.map((st) => `<button class="tap${cz.store === st ? ' on' : ''}" data-czstore="${esc(st)}">${st === 'Auto' ? 'Auto (Aldi · spécialités → Balboa/99Ranch/TJ)' : esc(st)}</button>`).join('')}</div></div>`;
   const list = cz.loading ? '<div class="none">Ingrédients de Chef Luc…</div>'
     : cz.items.length ? cz.items.map((x, i) => `<div class="czi${x.on ? '' : ' off'}"><button class="tap czt" data-czon="${i}"><span class="ck">${x.on ? I.check('#14110A') : ''}</span>${esc(x.t)}</button><button class="tap czx" data-czdel="${i}" aria-label="Retirer">${I.x}</button></div>`).join('')
     : `<div class="none">${cz.dish ? "Pas d'ingrédients trouvés pour ce plat — ajoutez-les ici." : 'Écrivez un article, puis Ajouter.'}</div>`;
   return `<div class="picker"><section class="box panel czbox"><div class="pk-h"><div><div class="pk-t">${cz.dish ? 'Ingrédients' : 'Courses'}</div><div class="hint">${cz.dish ? esc(cz.dish) + ' · décochez ce que vous avez déjà' : 'Va directement dans Cozi'}</div></div><button class="btn tap" data-close>${I.x}Fermer</button></div>
-    <div class="pfilters">${who}${stores}</div>
+    ${warn}<div class="pfilters">${who}${stores}</div>
     <div class="ptools"><input id="czq" type="text" placeholder="Ex. : lait, pain" autocomplete="off" enterkeyhint="done" value="${esc(cz.q || '')}"><button class="btn tap" data-czadd>Ajouter</button></div>
     <div class="czl">${list}</div>
-    <div class="czf"><a class="hint" href="${COZI()}" target="_blank" rel="noopener">Ouvrir Cozi ›</a><button class="btn gold tap" data-czsend ${n ? '' : 'disabled'}>${cz.sending ? 'Envoi…' : `Envoyer ${n} article${n > 1 ? 's' : ''} à Cozi`}</button></div></section></div>`;
+    <div class="czf"><a class="hint" href="${COZI()}" target="_blank" rel="noopener">Ouvrir Cozi ›</a><button class="btn gold tap" data-czsend ${n ? '' : 'disabled'}>${cz.sending ? 'Envoi…' : was ? (cz.confirm ? `Confirmer : renvoyer ${n} article${n > 1 ? 's' : ''}` : `Renvoyer ${n} article${n > 1 ? 's' : ''}…`) : `Envoyer ${n} article${n > 1 ? 's' : ''} à Cozi`}</button></div></section></div>`;
 };
 document.addEventListener('input', (e) => { if (e.target.id === 'czq' && cz) cz.q = e.target.value; });
 document.addEventListener('keydown', (e) => { if (e.target.id === 'czq' && e.key === 'Enter') { e.preventDefault(); czAddTyped(); } });
@@ -927,6 +939,7 @@ function phoneHome() {
     <header class="phead"><div><h1 class="pgreet">${d.getHours() >= 17 ? 'Bonsoir' : 'Bonjour'} ${esc(P[ME].n)}</h1><div class="hint">${DOWL[d.getDay()]} ${d.getDate()} ${MONL[d.getMonth()]}</div></div><button class="tap pme" data-switch aria-label="Changer de personne">${av(ME, 40)}</button></header>
     ${DEMO && !qs.has('demo') ? '<section class="card panel"><b>Famille d\'exemple</b><div class="hint">Ouvrez une fois votre lien famille (…/?k=…) dans ce navigateur pour voir vos vraies données.</div></section>' : ''}
     ${installCard()}
+    ${m && m.dish ? `<a class="card panel prow tap" href="${chefLuc(m.dish)}"><span>${I.food}<b>Cuisiner ce soir</b> avec Chef Luc</span><span class="hint">›</span></a>` : ''}
     <a class="card panel pdin tap" href="#repas"><span class="label">Ce soir</span><span class="pdish">${m && m.dish ? esc(m.dish) : 'À choisir'}${m && m.salade ? ' <span class="tag">+ salade</span>' : ''}</span>${m ? `<span class="hint"><span class="dot" style="background:${P[cook].c}"></span>${esc(m.cook)} cuisine</span>` : ''}</a>
     ${S.vote ? `<a class="card panel prow pvote tap" href="#votes"><span>${voted ? 'Votes de la semaine prochaine · fait ✓' : '<b>Votez</b> pour les repas de la semaine prochaine'}</span><span class="hint">ferme ${DOW[new Date(S.vote.closes).getDay()]} ${hm(S.vote.closes)} ›</span></a>` : ''}
     <section class="card panel"><div class="label">Au programme</div>${days || '<div class="none">Rien cette semaine</div>'}<a class="hint more2" href="#cal">Tout l'agenda ›</a></section>
@@ -945,7 +958,7 @@ document.addEventListener('click', (ev) => {
   if (!t) return;
   const ds = t.dataset;
   if ('cz' in ds) { ev.preventDefault(); openCozi(''); return; }
-  if (ds.czdish) { openCozi(ds.czdish); return; }
+  if (ds.czdish) { const i = ds.czdish.indexOf('|'); openCozi(ds.czdish.slice(i + 1), ds.czdish.slice(0, i)); return; }
   if (ds.czwho) { cz.who = ds.czwho; renderModal(); return; }
   if (ds.czstore) { cz.store = ds.czstore; renderModal(); return; }
   if (ds.czon) { const x = cz.items[+ds.czon]; x.on = !x.on; renderModal(); return; }
