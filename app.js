@@ -2,7 +2,7 @@
  * Snappy by design: the last data is saved on the tablet and drawn instantly; Google is only
  * asked in the background, and every tap changes the screen first and saves afterwards. */
 'use strict';
-const VERSION = '0.3.4';
+const VERSION = '0.3.5';
 
 // ---------------------------------------------------------------- config & storage
 const qs = new URLSearchParams(location.search);
@@ -15,14 +15,6 @@ if (qs.get('api')) store.set('api', qs.get('api'));
 const KEY = store.get('key', '');
 const API = store.get('api', '') || window.FCC_API || '';
 const DEMO = qs.has('demo') || !API || !KEY;
-// iPhone keeps home-screen apps in their own storage, so an icon saved from the manifest would open
-// without the family key (= the demo). On iPhone the icon is saved from the address bar instead,
-// which carries the key: drop the manifest and put ?k= back in the address.
-const IOS = /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
-if (IOS && KEY && !qs.has('demo')) {
-  const man = document.querySelector('link[rel="manifest"]'); if (man) man.remove();
-  if (qs.get('k') !== KEY) history.replaceState(null, '', location.pathname + '?k=' + encodeURIComponent(KEY) + location.hash);
-}
 // The wall tablet (Fully Kiosk) is the only screen that goes dark at night and returns home by itself.
 if (qs.has('wall')) store.set('wall', true);
 const WALL = () => !!window.fully || store.get('wall', false);
@@ -901,7 +893,7 @@ function phoneWho() {
     ${['Pa', 'Ma'].map((id) => `<button class="pwb tap" data-me="${id}" style="border-color:${P[id].c}">${av(id, 44)}${P[id].n}</button>`).join('')}
     <button class="ver tap" data-update>v${VERSION}${DEMO ? ' · démo' : ''} ↻</button></div>`;
 }
-// "Add to home screen": Android offers a real install button; iPhone needs Share → Sur l'écran d'accueil.
+// "Add to home screen": Chrome on Android offers a real install button.
 let installEvt = null;
 addEventListener('beforeinstallprompt', (e) => { e.preventDefault(); installEvt = e; if (PHONE() && !busy()) render(); });
 addEventListener('appinstalled', () => { installEvt = null; store.set('installed', true); if (PHONE()) render(); });
@@ -963,7 +955,7 @@ document.addEventListener('click', (ev) => {
   if ('pnone' in ds) { act({ a: 'dish', date: modal.date, cook: modal.cook, dish: '' }); modal = null; render(); return; }
   if ('install' in ds) {
     if (installEvt) { installEvt.prompt(); installEvt.userChoice.then(() => { installEvt = null; render(); }); }
-    else toast(/iPhone|iPad/.test(navigator.userAgent) ? "Touchez Partager ⬆ puis « Sur l'écran d'accueil »" : "Menu ⋮ du navigateur puis « Ajouter à l'écran d'accueil »");
+    else toast("Menu ⋮ de Chrome puis « Installer l'application »");
     return;
   }
   if ('noinstall' in ds) { store.set('noInstall', true); render(); return; }
