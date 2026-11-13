@@ -44,7 +44,7 @@ a { text-decoration: none; }
 .wxc { flex: 0 1 350px; min-width: 0; min-height: 80px; padding: 8px 14px; line-height: 1.2; display: flex; align-items: center; gap: 14px; }
 .wxc > div { min-width: 0; }
 .wxc svg { flex: none; }
-.wxc .who { display: flex; align-items: center; gap: 8px; font-size: 14px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.wxc .who { display: flex; align-items: center; gap: 8px; font-size: 14px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;  min-height: 0; padding: 0; border: 0; border-radius: 0; background: none; font-weight: 400; }
 .wxc .cond { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .wxc .tt { font-size: 22px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .wxc .tt .cl { font-size: 13.5px; font-weight: 400; color: var(--muted); }
@@ -75,6 +75,8 @@ a { text-decoration: none; }
 .rec > span:first-child { display: flex; align-items: baseline; gap: 5px; }
 .rec .dot { position: relative; top: -1px; }
 .rec.done { color: var(--faint); }
+.rec .rt { font-weight: 600; color: var(--text); }
+.rec.done .rt { color: var(--faint); }
 .pill { align-self: flex-start; margin-top: 2px; padding: 2px 8px; border-radius: 999px; background: var(--amber-bg); color: var(--amber); font-size: 12.5px; font-weight: 700; }
 .pill.now { background: var(--red); color: #fff; }
 .more { flex: none; white-space: nowrap; overflow: hidden; min-height: 36px; margin-top: auto; text-align: left; font-size: 14px; font-weight: 600; color: var(--gold); }
@@ -129,6 +131,66 @@ a { text-decoration: none; }
   .legend { font-size: 13px; gap: 2px 10px; }
   .wxc svg { width: 32px; height: 32px; }
   .wxc { padding: 8px 10px; gap: 8px; }
+}
+
+/* compact wall: tablets that report a small screen (about 960 × 550). The calendar gets the room:
+   one-line events, a smaller header and footer, a narrower side column. */
+@media (max-height: 720px) and (min-width: 901px), (max-width: 1100px) and (min-width: 901px) {
+  .page.home { padding: 10px 14px; gap: 8px 10px; grid-template-rows: auto minmax(0, 1fr) 48px; grid-template-columns: minmax(0, 1fr) 236px; }
+  .clock { gap: 12px; }
+  .clock .t { font-size: 46px; }
+  .clock .d1 { font-size: 19px; }
+  .clock .d2 { font-size: 15px; }
+  .clock .tag { font-size: 11px; }
+  .wx { gap: 8px; }
+  .wxc { min-height: 0; padding: 5px 10px; gap: 8px; flex-basis: 300px; }
+  .wxc svg { width: 28px; height: 28px; }
+  .wxc .who { font-size: 13px; }
+  .wxc .tt { font-size: 18px; }
+  .wxc .cond { font-size: 12.5px; }
+  .wxc > div { line-height: 1.15; }
+  .cal { gap: 6px; }
+  .week { gap: 4px; }
+  .wgrid { column-gap: 4px; row-gap: 3px; }
+  .wgrid .day { padding: 3px 6px; border-radius: 10px; }
+  .day .dl { font-size: 13px; }
+  .wgrid .bar { min-height: 24px; padding: 2px 6px; margin: 0 4px; font-size: 13px; }
+  .dcont { gap: 3px; padding: 1px 4px 4px; }
+  .chip { padding: 3px 6px; font-size: 13px; border-radius: 6px; gap: 0; }
+  .chip small { font-size: 11.5px; }
+  .rec .ct { -webkit-line-clamp: 1; }
+  .rec { font-size: 12.5px; gap: 1px; }
+  .pill { font-size: 11px; padding: 1px 6px; }
+  .more { min-height: 24px; font-size: 12.5px; }
+  .side { gap: 8px; }
+  .tasks { padding: 8px 12px; gap: 5px; }
+  .tasks .hd { min-height: 24px; }
+  .kid { gap: 3px; }
+  .kid .kh { height: 26px; }
+  .kid .kn { font-size: 16px; gap: 6px; }
+  .kid .kn .av { width: 24px; height: 24px; font-size: 11px; }
+  .kid .kp { font-size: 15px; }
+  .task { height: 34px; font-size: 14px; padding: 0 8px; gap: 8px; }
+  .task .box { width: 20px; height: 20px; }
+  .msgs { padding: 8px 12px; gap: 6px; }
+  .msg { padding: 6px 8px; }
+  .msg .tx { font-size: 14px; -webkit-line-clamp: 2; }
+  .seen { min-height: 36px; min-width: 44px; font-size: 14px; }
+  .none { font-size: 14px; }
+  .voice { height: 44px; font-size: 15px; gap: 8px; border-width: 1px; }
+  .mic { width: 32px; height: 32px; }
+  .mic svg { width: 18px; height: 18px; }
+  .soonp { padding: 6px 12px; }
+  .sn { min-height: 34px; }
+  .snn { width: 38px; font-size: 17px; }
+  .snt { font-size: 13px; }
+  .foot { gap: 8px; }
+  .legend { gap: 2px !important; }
+  .legend .pc { min-height: 36px; padding: 0 7px; gap: 4px; font-size: 12.5px; }
+  .nav { gap: 6px; }
+  .nav .btn { min-height: 40px; padding: 0 10px; gap: 5px; font-size: 14px; border-radius: 10px; }
+  .nav .btn svg { display: none; }
+  .ver { font-size: 11px; min-height: 36px; padding: 0 2px; }
 }
 
 /* wall tablet held upright (or a small window): the footer wraps instead of overlapping */

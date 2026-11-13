@@ -2,7 +2,7 @@
  * Snappy by design: the last data is saved on the tablet and drawn instantly; Google is only
  * asked in the background, and every tap changes the screen first and saves afterwards. */
 'use strict';
-const VERSION = '0.3.7';
+const VERSION = '0.3.8';
 
 // ---------------------------------------------------------------- config & storage
 const qs = new URLSearchParams(location.search);
@@ -257,7 +257,7 @@ function evHtml(e, key, now) {
   const dep = departure(e, now);
   const pill = dep ? `<span class="pill${dep.now ? ' now' : ''}">${dep.txt}</span>` : '';
   if (e.rec && e.s) {
-    return `<button class="rec tap${done ? ' done' : ''}" data-ev="${esc(e.id)}"><span><span class="dot" style="background:${p.c}"></span><span class="ct">${ini}${esc(short(e.t))} ${hm(e.s)}</span></span>${pill}</button>`;
+    return `<button class="rec tap${done ? ' done' : ''}" data-ev="${esc(e.id)}"><span><span class="dot" style="background:${p.c}"></span><span class="ct"><b class="rt">${hm(e.s)}</b> ${esc(short(e.t))}</span></span>${pill}</button>`;
   }
   const sub = e.s ? `<small>${ini}${hm(e.s)}</small>` : !e.school && ini ? `<small>${P[e.who].n}</small>` : e.school ? '<small class="school">Calendrier SDUSD</small>' : '';
   return `<button class="chip tap${done ? ' done' : ''}" style="background:${p.bg};color:${p.fg};--c:${p.c}" data-ev="${esc(e.id)}"><span class="ct">${esc(short(e.t))}</span>${until}${sub}${pill}</button>`;
