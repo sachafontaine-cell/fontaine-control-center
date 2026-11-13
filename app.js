@@ -2,7 +2,7 @@
  * Snappy by design: the last data is saved on the tablet and drawn instantly; Google is only
  * asked in the background, and every tap changes the screen first and saves afterwards. */
 'use strict';
-const VERSION = '0.3.8';
+const VERSION = '0.3.9';
 
 // ---------------------------------------------------------------- config & storage
 const qs = new URLSearchParams(location.search);
@@ -419,6 +419,11 @@ function touched() {
   if (!saverOn) armSaver();
 }
 addEventListener('pointerdown', touched, { passive: true });
+// Wall tablet without Fully Kiosk: hide Android's status and button bars (the browser only allows it after a touch).
+addEventListener('pointerdown', () => {
+  if (!WALL() || window.fully || document.fullscreenElement || !document.documentElement.requestFullscreen) return;
+  document.documentElement.requestFullscreen({ navigationUI: 'hide' }).catch(() => {});
+}, { passive: true });
 
 // ---------------------------------------------------------------- render
 function render() {
