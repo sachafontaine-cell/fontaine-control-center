@@ -131,6 +131,15 @@ a { text-decoration: none; }
   .wxc { padding: 8px 10px; gap: 8px; }
 }
 
+/* wall tablet held upright (or a small window): the footer wraps instead of overlapping */
+@media (max-width: 900px) {
+  .home { grid-template-rows: auto minmax(0, 1fr) auto; }
+  .foot { flex-wrap: wrap; justify-content: center; row-gap: 6px; }
+  .nav { flex-wrap: wrap; justify-content: center; }
+  .legend { justify-content: center; }
+  .wx { flex-wrap: wrap; }
+}
+
 /* ---------- calendar page ---------- */
 .ctools { flex: none; display: flex; flex-wrap: wrap; align-items: center; gap: 8px 10px; }
 .csearch { flex: 0 1 340px; min-width: 200px; height: 48px; display: flex; align-items: center; gap: 8px; padding: 0 14px; border-radius: 14px; border: 1px solid var(--line); background: var(--panel); color: var(--muted); }
