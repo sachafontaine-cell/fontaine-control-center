@@ -2,7 +2,7 @@
  * Snappy by design: the last data is saved on the tablet and drawn instantly; Google is only
  * asked in the background, and every tap changes the screen first and saves afterwards. */
 'use strict';
-const VERSION = '0.3.3';
+const VERSION = '0.3.4';
 
 // ---------------------------------------------------------------- config & storage
 const qs = new URLSearchParams(location.search);
@@ -402,7 +402,9 @@ function hideSaver() { clearTimeout(saverHide); $('#saver').hidden = true; saver
 $('#saver').addEventListener('click', hideSaver);
 
 // ---------------------------------------------------------------- routing
-const PHONE = () => innerWidth < 760 || (innerHeight < 500 && matchMedia('(pointer: coarse)').matches);
+// The wall tablet (Fully Kiosk, or opened once with &wall) always gets the wall layout, even held upright.
+// Otherwise a narrow screen, or a phone held sideways, gets the phone layout.
+const PHONE = () => !WALL() && (innerWidth < 760 || (innerHeight < 500 && matchMedia('(pointer: coarse)').matches));
 let route = location.hash.slice(1);
 let modal = null; // {kind, ...}
 function go(r) { if (route === r) { render(); return; } location.hash = r; }
