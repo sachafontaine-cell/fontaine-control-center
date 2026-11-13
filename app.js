@@ -2,7 +2,7 @@
  * Snappy by design: the last data is saved on the tablet and drawn instantly; Google is only
  * asked in the background, and every tap changes the screen first and saves afterwards. */
 'use strict';
-const VERSION = '0.3.9';
+const VERSION = '0.3.10';
 
 // ---------------------------------------------------------------- config & storage
 const qs = new URLSearchParams(location.search);
@@ -420,8 +420,9 @@ function touched() {
 }
 addEventListener('pointerdown', touched, { passive: true });
 // Wall tablet without Fully Kiosk: hide Android's status and button bars (the browser only allows it after a touch).
-addEventListener('pointerdown', () => {
+addEventListener('pointerdown', (e) => {
   if (!WALL() || window.fully || document.fullscreenElement || !document.documentElement.requestFullscreen) return;
+  if (e.target.closest && e.target.closest('input, textarea')) return; // don't disturb the keyboard
   document.documentElement.requestFullscreen({ navigationUI: 'hide' }).catch(() => {});
 }, { passive: true });
 
@@ -1081,7 +1082,12 @@ setInterval(() => { if (mode() !== 'day') refresh(true); }, 60 * 60000);
 setInterval(() => checkUpdate(false), 30 * 60000);
 addEventListener('online', () => flush().then(() => refresh(true)));
 
-addEventListener('resize', () => render());
+// The on-screen keyboard resizes the window: redrawing then would remove the text box and close the keyboard.
+// So while someone is typing, wait; redraw once they leave the text box.
+const typing = () => { const a = document.activeElement; return !!a && (a.tagName === 'INPUT' || a.tagName === 'TEXTAREA'); };
+let resizePending = false;
+addEventListener('resize', () => { if (typing()) { resizePending = true; return; } render(); });
+document.addEventListener('focusout', () => setTimeout(() => { if (resizePending && !typing()) { resizePending = false; render(); } }, 300));
 render();
 weather();
 refresh(true);
