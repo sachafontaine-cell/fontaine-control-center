@@ -2,7 +2,7 @@
  * Snappy by design: the last data is saved on the tablet and drawn instantly; Google is only
  * asked in the background, and every tap changes the screen first and saves afterwards. */
 'use strict';
-const VERSION = '0.3.6';
+const VERSION = '0.3.7';
 
 // ---------------------------------------------------------------- config & storage
 const qs = new URLSearchParams(location.search);
