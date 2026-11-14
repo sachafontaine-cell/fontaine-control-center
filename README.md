@@ -4,7 +4,7 @@ Family wall tablet (Android, Fully Kiosk Browser). Plain HTML/CSS/JS on GitHub P
 **No family data lives in this public repository**: names, events, contacts and settings come from a private Google Apps Script that is not stored here. `?demo` shows a made-up family.
 
 - **See it now with sample data:** https://sachafontaine-cell.github.io/fontaine-control-center/?demo
-- **Version / update:** the small `v1.0.1 ↻` at the bottom right checks for an update right away. The tablet also checks by itself when someone walks up and every 30 minutes, and applies new versions on the home screen.
+- **Version / update:** the small `v1.1.0 ↻` at the bottom right checks for an update right away. The tablet also checks by itself when someone walks up and every 30 minutes, and applies new versions on the home screen.
 
 ## One-time setup
 
@@ -44,7 +44,7 @@ https://sachafontaine-cell.github.io/fontaine-control-center/?k=KEY
 - **Motion detection** (front camera): on — the app turns it off 20:30–7:00 by itself.
 - **Scheduled sleep / wake up:** sleep 22:00, wake 5:45.
 - **Web content settings:** enable microphone access (voice notes).
-- **Kiosk mode → Kiosk app whitelist:** add `com.cozi.androidfree`, so the **Courses** button can open the Cozi app (Android's back button returns to the wall).
+- **Kiosk mode → Kiosk app whitelist:** add `com.cozi.androidfree`, so the **Épicerie** button can open the Cozi app (Android's back button returns to the wall).
 - **Advanced web settings:** enable the JavaScript interface (lets the app switch motion detection at night).
 - **Screen brightness:** low (less heat).
 - **House rules screensaver:** after 40 s without a touch on the home screen, all the house rules fill the screen. Keep the screen-off timer above 40 s so the kids get to see them; when the screen wakes, they stay 8 s, or until someone touches the screen.
@@ -53,7 +53,7 @@ https://sachafontaine-cell.github.io/fontaine-control-center/?k=KEY
 
 ### 5. Phone app + shortcuts (2 min per phone, Android + Chrome)
 Open the family link once → on Accueil tap **Ajouter** (or Chrome ⋮ → *Installer l'application*). The **Fontaine** icon opens full screen.
-Shortcuts: long-press the icon → **Agenda / Repas / Tâches / Courses**. Drag one to the home screen to get its own icon (**Courses** opens straight into the Cozi list).
+Shortcuts: long-press the icon → **Agenda / Repas / Tâches / Épicerie**. Drag one to the home screen to get its own icon (**Épicerie** opens straight into the Cozi list).
 
 If an icon ever shows the made-up family ("Famille d'exemple" card), open the family link again in that browser.
 
@@ -67,9 +67,9 @@ If an icon ever shows the made-up family ("Famille d'exemple" card), open the fa
 | Dish filters (protein, cuisine, style) | Recettes tab: columns Protéine, Cuisine, Style (styles separated by commas) |
 | Who gets the wall's voice notes | Réglages → "Courriels parents" (comma-separated) |
 | School names on the weather tiles | Réglages → the two "Météo …" rows (the first part is the name shown) |
-| Dinner | Repas screen (votes for next week; the cook swaps this week's dish) |
+| Dinner | Repas screen (votes for next week; the cook swaps this week's dish; a parent's phone can change who cooks a day) |
 | Messages to the kids | the family link on a parent's phone |
-| Groceries | Cozi — added from the Courses button, a dinner's Ingrédients button, or Chef Luc's weekly list (ingredients come from the newest Chef Luc recipe file in Drive). A dinner already sent from either app shows **Ingrédients ✓** and asks before sending again |
+| Groceries | Cozi — added from the Épicerie button, a dinner's Ingrédients button, or Chef Luc's weekly list (ingredients come from the newest Chef Luc recipe file in Drive). A dinner already sent from either app shows **Ingrédients ✓** and asks before sending again |
 | Cooking a dinner | **Cuisiner** on a dinner (Repas) or **Cuisiner ce soir** (phone) opens the recipe in [Chef Luc](https://sachafontaine-cell.github.io/Chef-Luc/) |
 
 Weeks run **Sunday to Saturday** everywhere (calendar, chores, dinners). Votes close every **Thursday at 19:00**: the top dishes become next week's dinners and the following week's options appear. A dinner already chosen for a day is never replaced by the vote.

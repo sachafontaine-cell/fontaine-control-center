@@ -2,7 +2,7 @@
  * Snappy by design: the last data is saved on the tablet and drawn instantly; Google is only
  * asked in the background, and every tap changes the screen first and saves afterwards. */
 'use strict';
-const VERSION = '1.0.1';
+const VERSION = '1.1.0';
 
 // ---------------------------------------------------------------- config & storage
 const qs = new URLSearchParams(location.search);
@@ -148,6 +148,7 @@ const APPLY = {
     if (!a.on && i >= 0) list.splice(i, 1);
   },
   dish(a) { const m = S.menu.find((x) => x.date === a.date); if (m) { m.dish = a.dish; m.salade = false; } },
+  cook(a) { const m = S.menu.find((x) => x.date === a.date); if (m) m.cook = a.cook; },
   seen(a) { S.messages = S.messages.filter((m) => m.id !== a.id); },
   message(a) { const id = 'local' + a.at; if (!S.messages.some((m) => m.id === id)) S.messages.push({ id, at: a.at, from: a.from, to: a.to, text: a.text }); },
 };
@@ -436,7 +437,7 @@ addEventListener('pointerdown', (e) => {
 function render() {
   if (!S) { $('#app').innerHTML = `<div class="boot">${DEMO ? 'Famille Fontaine' : badKey ? esc(badKey) : 'Chargement…'}</div>`; return; }
   const r = route.split('/')[0];
-  // Home-screen shortcut "Courses": opens the Cozi sheet straight away.
+  // Home-screen shortcut "Épicerie": opens the Cozi sheet straight away.
   if (r === 'courses') { history.replaceState(null, '', location.pathname + location.search); route = ''; if (!S.cozi) { location.href = COZI(); return; } render(); openCozi(''); return; }
   const view = { '': PHONE() ? phoneHome : home, cal: calPage, repas: repasPage, votes: votesPage, taches: tachesPage, regles: reglesPage, contacts: contactsPage, voix: voicePage }[r] || home;
   document.documentElement.classList.toggle('ph', PHONE());
@@ -507,6 +508,7 @@ function footer() {
     <div class="legend">${['M', 'F', 'Pa', 'Ma', 'Fam'].map((k) => `<button class="pc tap${CF.who === k ? ' on' : ''}" data-cwho="${k}" style="${CF.who === k ? `border-color:${P[k].c}` : ''}"><span class="dot" style="background:${P[k].c}"></span>${P[k].n}</button>`).join('')}</div>
     <nav class="nav">
       <a class="btn tap" href="#cal">${I.cal}Calendrier</a>
+      <a class="btn tap" href="#taches">${I.check2}Tâches</a>
       <a class="btn tap" href="#repas">${I.food}Repas</a>
       ${coziLink('btn tap')}
       <a class="btn tap" href="#regles">${I.star}Règles</a>
@@ -622,7 +624,7 @@ function repasPage() {
   const rows = S.menu.map((m) => {
     const d = parse(m.date), id = COOK[m.cook] || 'Pa';
     const cls = m.date < todayKey ? ' past' : m.date === todayKey ? ' today' : '';
-    return `<div class="mrow${cls}"><span class="md">${DOW[d.getDay()]} ${d.getDate()}</span><span class="mc">${av(id)}${esc(m.cook)}</span>
+    return `<div class="mrow${cls}"><span class="md">${DOW[d.getDay()]} ${d.getDate()}</span>${PHONE() && ME && m.date >= todayKey ? `<button class="mc tap" data-cook="${m.date}">${av(id)}${esc(m.cook)} <span class="hint">✎</span></button>` : `<span class="mc">${av(id)}${esc(m.cook)}</span>`}
       <button class="dish tap" data-dish="${m.date}|${esc(m.cook)}"><span>${m.dish ? esc(m.dish) : '<span style="color:var(--dim)">À choisir</span>'}</span>${m.salade ? '<span class="tag">+ salade</span>' : ''}</button>
       <span class="macts">${m.dish && m.date >= todayKey ? `<a class="btn tap mcart" href="${chefLuc(m.dish)}">${I.food}Cuisiner</a>` : ''}${S.cozi && m.dish && m.date >= todayKey ? `<button class="btn tap mcart${sentFor(m.date, m.dish) ? ' sent' : ''}" data-czdish="${m.date}|${esc(m.dish)}">${I.cart}Ingrédients${sentFor(m.date, m.dish) ? ' ✓' : ''}</button>` : `<span class="hint">${m.date === todayKey && !m.dish ? 'Ce soir' : ''}</span>`}</span></div>`;
   }).join('');
@@ -846,7 +848,7 @@ MODALS.cozi = () => {
   const list = cz.loading ? '<div class="none">Ingrédients de Chef Luc…</div>'
     : cz.items.length ? cz.items.map((x, i) => `<div class="czi${x.on ? '' : ' off'}"><button class="tap czt" data-czon="${i}"><span class="ck">${x.on ? I.check('#14110A') : ''}</span>${esc(x.t)}</button><button class="tap czx" data-czdel="${i}" aria-label="Retirer">${I.x}</button></div>`).join('')
     : `<div class="none">${cz.dish ? "Pas d'ingrédients trouvés pour ce plat — ajoutez-les ici." : 'Écrivez un article, puis Ajouter.'}</div>`;
-  return `<div class="picker"><section class="box panel czbox"><div class="pk-h"><div><div class="pk-t">${cz.dish ? 'Ingrédients' : 'Courses'}</div><div class="hint">${cz.dish ? esc(cz.dish) + ' · décochez ce que vous avez déjà' : 'Va directement dans Cozi'}</div></div><button class="btn tap" data-close>${I.x}Fermer</button></div>
+  return `<div class="picker"><section class="box panel czbox"><div class="pk-h"><div><div class="pk-t">${cz.dish ? 'Ingrédients' : 'Épicerie'}</div><div class="hint">${cz.dish ? esc(cz.dish) + ' · décochez ce que vous avez déjà' : 'Va directement dans Cozi'}</div></div><button class="btn tap" data-close>${I.x}Fermer</button></div>
     ${warn}<div class="pfilters">${who}${stores}</div>
     <div class="ptools"><input id="czq" type="text" placeholder="Ex. : lait, pain" autocomplete="off" enterkeyhint="done" value="${esc(cz.q || '')}"><button class="btn tap" data-czadd>Ajouter</button></div>
     <div class="czl">${list}</div>
@@ -855,6 +857,12 @@ MODALS.cozi = () => {
 document.addEventListener('input', (e) => { if (e.target.id === 'czq' && cz) cz.q = e.target.value; });
 document.addEventListener('keydown', (e) => { if (e.target.id === 'czq' && e.key === 'Enter') { e.preventDefault(); czAddTyped(); } });
 
+// A parent's phone: who makes dinner that day.
+MODALS.cook = () => {
+  const d = parse(modal.date), cur = (S.menu.find((x) => x.date === modal.date) || {}).cook;
+  const who = ['Pa', 'Ma', 'M', 'F'].map((k) => `<button class="pwb tap${P[k].n === cur ? ' on' : ''}" data-setcook="${esc(P[k].n)}" style="border-color:${P[k].n === cur ? P[k].c : 'var(--line)'}">${av(k, 36)}${P[k].n}${P[k].n === cur ? ' <span class="hint">· actuel</span>' : ''}</button>`).join('');
+  return `<div class="modal" data-close><section class="det panel"><div class="dh"><span style="font-size:20px;font-weight:700">${DOWL[d.getDay()]} ${d.getDate()} · qui cuisine${NB}?</span><button class="btn tap" data-close>${I.x}Fermer</button></div><div class="cookl">${who}</div></section></div>`;
+};
 function renderModal() { $('#modal').innerHTML = modal ? MODALS[modal.kind]() : ''; }
 // ---------------------------------------------------------------- dish picker: search, filter, sort
 const RCP = () => (S.recipes || []).map((r) => (typeof r === 'string' ? { t: r } : r));
@@ -908,9 +916,9 @@ const COZI = () => /Android/i.test(navigator.userAgent)
   ? 'intent://#Intent;action=android.intent.action.MAIN;category=android.intent.category.LAUNCHER;package=com.cozi.androidfree;S.browser_fallback_url=https%3A%2F%2Fmy.cozi.com%2F;end'
   : 'https://my.cozi.com/';
 function coziLink(cls) {
-  if (S && S.cozi) return `<button class="${cls}" data-cz>${I.cart}Courses</button>`;
-  if (window.fully && window.fully.startApplication) return `<button class="${cls}" data-cozi>${I.cart}Courses</button>`;
-  return `<a class="${cls}" href="${COZI()}" target="_blank" rel="noopener">${I.cart}Courses</a>`;
+  if (S && S.cozi) return `<button class="${cls}" data-cz>${I.cart}Épicerie</button>`;
+  if (window.fully && window.fully.startApplication) return `<button class="${cls}" data-cozi>${I.cart}Épicerie</button>`;
+  return `<a class="${cls}" href="${COZI()}" target="_blank" rel="noopener">${I.cart}Épicerie</a>`;
 }
 // The phone asks once "Papa or Maman?" and remembers it (tap the name to change).
 let ME = store.get('me', null), phoneTo = 'Tous', draft = '';
@@ -931,7 +939,7 @@ function installCard() {
 }
 function phoneTabs(r) {
   const on = (x) => (x.includes(r) ? ' class="on"' : '');
-  return `<nav class="pnav"><a${on([''])} href="#">${I.home}Accueil</a><a${on(['cal'])} href="#cal">${I.cal}Agenda</a><a${on(['repas', 'votes'])} href="#repas">${I.food}Repas</a><a${on(['taches'])} href="#taches">${I.check2}Tâches</a>${S.cozi ? `<a href="#" data-cz>${I.cart}Courses</a>` : `<a href="${COZI()}">${I.cart}Courses</a>`}</nav>`;
+  return `<nav class="pnav"><a${on([''])} href="#">${I.home}Accueil</a><a${on(['cal'])} href="#cal">${I.cal}Agenda</a><a${on(['repas', 'votes'])} href="#repas">${I.food}Repas</a><a${on(['taches'])} href="#taches">${I.check2}Tâches</a>${S.cozi ? `<a href="#" data-cz>${I.cart}Épicerie</a>` : `<a href="${COZI()}">${I.cart}Épicerie</a>`}</nav>`;
 }
 function phoneHome() {
   if (!ME) return phoneWho();
@@ -969,9 +977,11 @@ function phoneHome() {
 
 // ---------------------------------------------------------------- taps (one listener for everything)
 document.addEventListener('click', (ev) => {
-  const t = ev.target.closest('[data-cz],[data-czdish],[data-czwho],[data-czstore],[data-czon],[data-czdel],[data-czadd],[data-czsend],[data-pnone],[data-install],[data-noinstall],[data-cwho],[data-cclear],[data-cozi],[data-pf],[data-pclear],[data-psort],[data-prand],[data-day],[data-task],[data-seen],[data-ev],[data-close],[data-dish],[data-pick],[data-voter],[data-vote],[data-update],[data-me],[data-switch],[data-to],[data-send],[data-retry]');
+  const t = ev.target.closest('[data-cook],[data-setcook],[data-cz],[data-czdish],[data-czwho],[data-czstore],[data-czon],[data-czdel],[data-czadd],[data-czsend],[data-pnone],[data-install],[data-noinstall],[data-cwho],[data-cclear],[data-cozi],[data-pf],[data-pclear],[data-psort],[data-prand],[data-day],[data-task],[data-seen],[data-ev],[data-close],[data-dish],[data-pick],[data-voter],[data-vote],[data-update],[data-me],[data-switch],[data-to],[data-send],[data-retry]');
   if (!t) return;
   const ds = t.dataset;
+  if (ds.cook) { openModal({ kind: 'cook', date: ds.cook }); return; }
+  if (ds.setcook) { act({ a: 'cook', date: modal.date, cook: ds.setcook }); modal = null; render(); toast('Cuisinier changé'); return; }
   if ('cz' in ds) { ev.preventDefault(); openCozi(''); return; }
   if (ds.czdish) { const i = ds.czdish.indexOf('|'); openCozi(ds.czdish.slice(i + 1), ds.czdish.slice(0, i)); return; }
   if (ds.czwho) { cz.who = ds.czwho; renderModal(); return; }

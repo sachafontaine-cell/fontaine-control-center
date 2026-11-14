@@ -58,8 +58,8 @@
       ]
     },
     {
-      "name": "Courses",
-      "short_name": "Courses",
+      "name": "Épicerie",
+      "short_name": "Épicerie",
       "description": "Ajouter à la liste Cozi",
       "url": "/fontaine-control-center/#courses",
       "icons": [

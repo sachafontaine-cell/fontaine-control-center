@@ -433,7 +433,42 @@ test('phone: agenda tab has search and a Google Agenda button', async (b) => {
   ok((await count(p, '.results .prow')) > 0, 'results');
 });
 
-test('phone: Courses tab opens the Cozi sheet without asking who', async (b) => {
+test('phone: a parent changes who cooks, the wall does not offer it', async (b) => {
+  const posts = [];
+  const p = await open(b, { device: 'Pixel 7', storage: { me: 'Pa' }, url: '?demo#repas' });
+  const row = p.locator('.mrow:not(.past)').last();
+  const before = await row.locator('.mc').innerText();
+  await row.locator('[data-cook]').click();
+  ok(await visible(p, '.cookl'), 'cook choices');
+  eq(await count(p, '.cookl [data-setcook]'), 4, 'four people');
+  const other = (await p.locator('.cookl [data-setcook]:not(.on)').first().getAttribute('data-setcook'));
+  await p.click(`.cookl [data-setcook="${other}"]`);
+  ok((await row.locator('.mc').innerText()).includes(other), `now ${other} (was ${before})`);
+  ok((await text(p, '#toast')).includes('Cuisinier'), 'confirmation');
+  const w = await open(b, { url: '?demo&wall#repas' });
+  eq(await count(w, '[data-cook]'), 0, 'not on the wall');
+});
+
+test('épicerie: named Épicerie on the wall and the phone', async (b) => {
+  const w = await open(b, { url: '?demo&wall' });
+  ok((await text(w, '.foot [data-cz]')).includes('Épicerie'), 'wall button');
+  await w.click('.foot [data-cz]');
+  eq(await text(w, '.czbox .pk-t'), 'Épicerie', 'sheet title');
+  const p = await open(b, { device: 'Pixel 7', storage: { me: 'Ma' } });
+  ok((await text(p, '.pnav [data-cz]')).includes('Épicerie'), 'phone tab');
+});
+
+test('wall: footer buttons in order, Tâches after Calendrier', async (b) => {
+  const p = await open(b, { url: '?demo&wall' });
+  const labels = (await p.locator('.foot .nav .btn').allInnerTexts()).map((x) => x.trim());
+  eq(labels.join(' · '), 'Calendrier · Tâches · Repas · Épicerie · Règles · Contacts', 'buttons');
+  await p.click('.foot a[href="#taches"]');
+  await p.waitForTimeout(100);
+  const r = await p.evaluate(() => location.hash + ' ' + !!document.querySelector('.grid7'));
+  eq(r, '#taches true', 'opens Tâches');
+});
+
+test('phone: Épicerie tab opens the Cozi sheet without asking who', async (b) => {
   const p = await open(b, { device: 'Pixel 7', storage: { me: 'Pa' } });
   await p.click('.pnav [data-cz]');
   ok(await visible(p, '.czbox'), 'sheet open');
@@ -491,7 +526,8 @@ test('family link: offline, the last data still shows and taps wait', async (b) 
   await p.click('[data-seen]');
   eq(await p.evaluate(() => JSON.parse(localStorage.getItem('fcc-outbox')).length), 1, 'tap kept for later');
   online = true;
-  await p.evaluate(() => dispatchEvent(new Event('online'))); await p.waitForTimeout(400);
+  await p.evaluate(() => dispatchEvent(new Event('online')));
+  for (let i = 0; i < 20 && !posts.some((x) => x.a === 'seen'); i++) await p.waitForTimeout(100);
   ok(posts.some((x) => x.a === 'seen'), 'sent when back online');
 });
 
