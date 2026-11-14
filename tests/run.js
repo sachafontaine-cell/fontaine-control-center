@@ -342,7 +342,9 @@ test('repas: votes need a name and allow 3 per parent', async (b) => {
   const tiles = p.locator('.grp').first().locator('[data-vote]');
   for (let i = 0; i < 4; i++) await tiles.nth(i).click();
   ok((await text(p, '.whos')).includes('Maximum 3'), 'limit of 3');
-  ok((await text(p, '.grp .gc')).includes('3/3'), 'count shows 3/3');
+  ok((await text(p, '.grp .gc')).includes('Papa : 3/3 votes'), 'count shows Papa : 3/3 votes');
+  const ph = await open(b, { device: 'Pixel 7', storage: { me: 'Ma' }, url: '?demo#votes' });
+  ok((await text(ph, '.grp .gc')).startsWith('Vos votes :'), 'phone says "Vos votes"');
 });
 
 // ----- groceries, chores, rules, contacts, voice

@@ -2,7 +2,7 @@
  * Snappy by design: the last data is saved on the tablet and drawn instantly; Google is only
  * asked in the background, and every tap changes the screen first and saves afterwards. */
 'use strict';
-const VERSION = '1.1.0';
+const VERSION = '1.1.1';
 
 // ---------------------------------------------------------------- config & storage
 const qs = new URLSearchParams(location.search);
@@ -651,7 +651,7 @@ function votesPage() {
       const r = rmap.get(x.dish), meta = r ? [r.cui, r.prot].filter(Boolean).join(' · ') : '';
       return `<button class="tile tap" data-vote="${esc(g.group)}|${esc(x.dish)}" style="${on ? `border-color:${P[voter].c};background:var(--panel2)` : ''}"><span class="tn">${esc(x.dish)}</span>${meta ? `<span class="tm">${esc(meta)}</span>` : ''}${x.salade ? '<span class="tag" style="align-self:flex-start">+ salade</span>' : ''}<span class="tv">${vs.map((p) => av(p, 22)).join('')}</span></button>`;
     }).join('');
-    return `<div class="grp"><div class="gh"><span class="dot" style="background:${P[gid].c};width:12px;height:12px"></span>${esc(title)}<span class="gs">${NIGHTS[g.group]} — ${g.max === 1 ? '1 vote' : '3 votes max'}</span><span class="gc">${voter ? `${P[voter].n} : ${mine}/${g.max}` : ''}</span></div><div class="tiles">${tiles}</div></div>`;
+    return `<div class="grp"><div class="gh"><span class="dot" style="background:${P[gid].c};width:12px;height:12px"></span>${esc(title)}<span class="gs">${NIGHTS[g.group]} — ${g.max === 1 ? '1 vote' : '3 votes max'}</span><span class="gc">${voter ? (PHONE() && ME ? `Vos votes : ${mine}/${g.max}` : `${P[voter].n} : ${mine}/${g.max} vote${g.max > 1 ? 's' : ''}`) : ''}</span></div><div class="tiles">${tiles}</div></div>`;
   }).join('');
   return `<div class="page">${topBar('Repas', '', tabs(2))}
     <div class="whos">${PHONE() && ME ? `<span class="hint" style="font-size:15px">Vous votez : ${P[ME].n}</span>` : `<span class="hint" style="font-size:17px">Qui vote ?</span>${who}`}<span class="hint ${flash ? 'flash' : ''}" style="margin-left:auto">${flash || `Semaine du ${mon.getDate()} ${MON[mon.getMonth()]} · ferme ${DOW[closes.getDay()]} ${hm(closes.getTime())}`}</span></div>
