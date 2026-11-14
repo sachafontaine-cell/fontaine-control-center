@@ -4,7 +4,7 @@ Family wall tablet (Android, Fully Kiosk Browser). Plain HTML/CSS/JS on GitHub P
 **No family data lives in this public repository**: names, events, contacts and settings come from a private Google Apps Script that is not stored here. `?demo` shows a made-up family.
 
 - **See it now with sample data:** https://sachafontaine-cell.github.io/fontaine-control-center/?demo
-- **Version / update:** the small `v0.3.11 ↻` at the bottom right checks for an update right away. The tablet also checks by itself when someone walks up and every 30 minutes, and applies new versions on the home screen.
+- **Version / update:** the small `v1.0.0 ↻` at the bottom right checks for an update right away. The tablet also checks by itself when someone walks up and every 30 minutes, and applies new versions on the home screen.
 
 ## One-time setup
 
@@ -72,10 +72,11 @@ If an icon ever shows the made-up family ("Famille d'exemple" card), open the fa
 | Groceries | Cozi — added from the Courses button, a dinner's Ingrédients button, or Chef Luc's weekly list (ingredients come from the newest Chef Luc recipe file in Drive). A dinner already sent from either app shows **Ingrédients ✓** and asks before sending again |
 | Cooking a dinner | **Cuisiner** on a dinner (Repas) or **Cuisiner ce soir** (phone) opens the recipe in [Chef Luc](https://sachafontaine-cell.github.io/Chef-Luc/) |
 
-Votes close every **Thursday at 19:00**: the top dishes become next week's menu and next week's options appear.
+Weeks run **Sunday to Saturday** everywhere (calendar, chores, dinners). Votes close every **Thursday at 19:00**: the top dishes become next week's dinners and the following week's options appear. A dinner already chosen for a day is never replaced by the vote.
 
 ## Files
 - `index.html`, `app.css`, `app.js` — the app (no build step).
 - `sw.js` — keeps the app on the tablet so it opens instantly and offline. **Release with `./bump.sh X.Y.Z`** (sets the version in `app.js`, `sw.js` and here, and checks no file got emptied).
 - `demo.js` — sample data for `?demo`.
+- `tests/run.js` — end-to-end tests: wall tablet (several screen sizes, day and night, idle timers, screensaver), phones (light and dark), computer, the family link against a fake Google script (wrong key, offline, old data), and the release files. Run `node tests/run.js` (needs Node and Playwright); `node tests/run.js phone` runs only the phone tests. Run them before every release.
 - `Code.gs` (private, not in this repository) — Google side: calendars, sheets, votes, messages, voice notes by email.

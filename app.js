@@ -2,7 +2,7 @@
  * Snappy by design: the last data is saved on the tablet and drawn instantly; Google is only
  * asked in the background, and every tap changes the screen first and saves afterwards. */
 'use strict';
-const VERSION = '0.3.11';
+const VERSION = '1.0.0';
 
 // ---------------------------------------------------------------- config & storage
 const qs = new URLSearchParams(location.search);
@@ -633,7 +633,8 @@ function votesPage() {
   const closes = new Date(v.closes);
   const mon = parse(v.week);
   const who = ['M', 'F', 'Pa', 'Ma'].map((id) => `<button class="who tap" data-voter="${id}" style="${voter === id ? `border-color:${P[id].c};background:var(--panel2)` : ''}">${av(id)}${P[id].n}</button>`).join('');
-  const NIGHTS = { Papa: 'lun. · mer. · ven.', Maman: 'mar. · jeu. · dim.', Enfant: `sam. ${addDays(mon, 5).getDate()} ${MON[addDays(mon, 5).getMonth()]}` };
+  const sat = addDays(mon, (6 - mon.getDay() + 7) % 7); // the week's Saturday (weeks start on Sunday)
+  const NIGHTS = { Papa: 'lun. · mer. · ven.', Maman: 'dim. · mar. · jeu.', Enfant: `sam. ${sat.getDate()} ${MON[sat.getMonth()]}` };
   const rmap = new Map(RCP().map((r) => [r.t, r]));
   const groups = v.groups.map((g) => {
     const mine = g.dishes.filter((x) => (v.votes[x.dish] || []).includes(voter)).length;

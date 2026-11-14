@@ -33,7 +33,10 @@ window.FCC_DEMO = function () {
     { sd: ymd(day(17)), ed: ymd(day(18)), t: "Thanksgiving — pas d'école" },
     { sd: ymd(day(42)), ed: ymd(day(53)), t: 'Vacances de Noël' },
   ];
-  const cooks = ['Papa', 'Maman', 'Papa', 'Maman', 'Papa', 'Hugo', 'Maman'];
+  // Dinners run Sunday to Saturday, like the calendar.
+  const sun = new Date(now); sun.setHours(0, 0, 0, 0); sun.setDate(sun.getDate() - sun.getDay());
+  const sday = (i) => { const d = new Date(sun); d.setDate(d.getDate() + i); return d; };
+  const cooks = ['Maman', 'Papa', 'Maman', 'Papa', 'Maman', 'Papa', 'Hugo'];
   const dishes = ['Salmon Fried Rice', 'Butter Chicken (Instant Pot)', 'Ancho Chicken Salad', 'Swedish Meatballs (Shortcut)', 'Cantonese Fried Noodles (Crispy Chow Mein)', 'Cheesy Smoked Rib Quesadillas', 'Tom Yum Noodle Soup with Shrimp, Coconut Cream & Lime'];
   const salad = { 'Butter Chicken (Instant Pot)': 1, 'Swedish Meatballs (Shortcut)': 1, 'Cheesy Smoked Rib Quesadillas': 1 };
   const t = ymd(now);
@@ -46,9 +49,9 @@ window.FCC_DEMO = function () {
       done: [{ d: ymd(day(0)), who: 'M', task: 'Ranger pour 10 minutes' }, { d: ymd(day(0)), who: 'M', task: 'Piano' }, { d: ymd(day(0)), who: 'F', task: 'Ranger pour 10 minutes' }, { d: t, who: 'M', task: 'Ranger pour 10 minutes' }, { d: t, who: 'F', task: 'Piano' }],
     },
     messages: [{ id: 'm1', at: Date.now() - 95 * 60000, from: 'Maman', to: 'Hugo', text: "N'oublie pas tes protège-tibias !" }],
-    menu: cooks.map((c, i) => ({ date: ymd(day(i)), cook: c, dish: dishes[i], salade: !!salad[dishes[i]] })),
+    menu: cooks.map((c, i) => ({ date: ymd(sday(i)), cook: c, dish: dishes[i], salade: !!salad[dishes[i]] })),
     vote: {
-      week: ymd(day(7)), closes: at(3, 19), kid: 'Léa',
+      week: ymd(sday(7)), closes: at(3, 19), kid: 'Léa',
       groups: [
         { group: 'Papa', max: 3, dishes: ['Shrimp Tacos', 'Thai Green Curry', 'Brown Butter Shrimp with Spicy Greens', 'Beef Shawarma Wrap', 'Chicken Satay Bake', 'Roasted Lemon Chicken'].map((d) => ({ dish: d, salade: d === 'Chicken Satay Bake' })) },
         { group: 'Maman', max: 3, dishes: ['Boeuf Bourguignon', 'Chicken and Rice with Roasted Nuts', 'Chili (Instant Pot)', 'Couscous Royale', 'Cassoulet (Instant Pot Style)', 'Baked Enchiladas with Yogurt & Beans'].map((d) => ({ dish: d, salade: /Bourguignon|Chicken and Rice|Cassoulet/.test(d) })) },
