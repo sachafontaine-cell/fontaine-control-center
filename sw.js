@@ -1,5 +1,5 @@
 // Keeps the app on the tablet so it opens instantly, even offline. Bump VERSION with app.js.
-const VERSION = '0.3.10';
+const VERSION = '0.3.11';
 const CACHE = 'fcc-' + VERSION;
 const SHELL = ['./', 'index.html', 'app.css', 'app.js', 'config.js', 'demo.js', 'manifest.webmanifest', 'icons/icon-192.png', 'icons/favicon.png'];
 

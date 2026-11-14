@@ -4,7 +4,7 @@ Family wall tablet (Android, Fully Kiosk Browser). Plain HTML/CSS/JS on GitHub P
 **No family data lives in this public repository**: names, events, contacts and settings come from a private Google Apps Script that is not stored here. `?demo` shows a made-up family.
 
 - **See it now with sample data:** https://sachafontaine-cell.github.io/fontaine-control-center/?demo
-- **Version / update:** the small `v0.3.10 ↻` at the bottom right checks for an update right away. The tablet also checks by itself when someone walks up and every 30 minutes, and applies new versions on the home screen.
+- **Version / update:** the small `v0.3.11 ↻` at the bottom right checks for an update right away. The tablet also checks by itself when someone walks up and every 30 minutes, and applies new versions on the home screen.
 
 ## One-time setup
 
@@ -48,7 +48,7 @@ https://sachafontaine-cell.github.io/fontaine-control-center/?k=KEY
 - **Advanced web settings:** enable the JavaScript interface (lets the app switch motion detection at night).
 - **Screen brightness:** low (less heat).
 - **House rules screensaver:** after 40 s without a touch on the home screen, all the house rules fill the screen. Keep the screen-off timer above 40 s so the kids get to see them; when the screen wakes, they stay 8 s, or until someone touches the screen.
-- Only the wall tablet goes dark at night and returns to the home screen after 90 s (it is recognized by Fully Kiosk). Phones and computers never do. To try the wall behavior in a normal browser, add `&wall` to the link once.
+- Only the wall tablet goes dark at night and returns to the home screen after 90 s (it is recognized by Fully Kiosk). Phones and computers never do. To try the wall behavior in a normal browser, add `&wall` to the link once (`&wall=0` turns it off). Phones are never treated as the wall.
 - Settings → Battery: turn on a charge limit if the tablet offers one.
 
 ### 5. Phone app + shortcuts (2 min per phone, Android + Chrome)

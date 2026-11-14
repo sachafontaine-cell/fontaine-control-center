@@ -2,7 +2,7 @@
  * Snappy by design: the last data is saved on the tablet and drawn instantly; Google is only
  * asked in the background, and every tap changes the screen first and saves afterwards. */
 'use strict';
-const VERSION = '0.3.10';
+const VERSION = '0.3.11';
 
 // ---------------------------------------------------------------- config & storage
 const qs = new URLSearchParams(location.search);
@@ -16,8 +16,11 @@ const KEY = store.get('key', '');
 const API = store.get('api', '') || window.FCC_API || '';
 const DEMO = qs.has('demo') || !API || !KEY;
 // The wall tablet (Fully Kiosk) is the only screen that goes dark at night and returns home by itself.
-if (qs.has('wall')) store.set('wall', true);
-const WALL = () => !!window.fully || store.get('wall', false);
+// ?wall turns wall mode on for this device, ?wall=0 turns it off. A phone-sized screen is never the wall,
+// even if the wall link was opened on it (measured on the device's screen, so the keyboard doesn't matter).
+if (qs.has('wall')) store.set('wall', qs.get('wall') !== '0');
+const SMALL_DEVICE = Math.min(screen.width, screen.height) < 600;
+const WALL = () => !!window.fully || (store.get('wall', false) && !SMALL_DEVICE);
 
 // Names are not in this public code: they come from the private Google script (S.people).
 const P = {
