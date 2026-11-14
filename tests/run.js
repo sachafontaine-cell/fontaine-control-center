@@ -223,13 +223,20 @@ test('wall: back to the home screen after 90 s untouched', async (b) => {
   ok(await visible(p, '.page.home'), 'home again');
 });
 
-test('wall: night — black screen, a touch shows the clock for 15 s', async (b) => {
+test('wall: night — black screen, a tap brings the home screen until 90 s untouched', async (b) => {
   const p = await open(b, { url: '?demo&wall', time: NIGHT });
   ok(await visible(p, '#night'), 'night screen');
   await p.click('#night');
-  ok((await text(p, '#night .nt')).includes('21'), 'night clock');
-  await run(p, 16000);
-  eq(await p.locator('#night .nt').count(), 0, 'clock hidden again');
+  eq(await visible(p, '#night'), false, 'home screen after a tap');
+  ok(await visible(p, '.page.home'), 'home page shown');
+  await run(p, 60000);
+  await p.locator('.tasks [data-task]').first().click(); // someone uses it
+  await run(p, 60000);
+  eq(await visible(p, '#night'), false, 'still on: touched 60 s ago');
+  await run(p, 31000);
+  ok(await visible(p, '#night'), 'black again after 90 s untouched');
+  await p.click('#night');
+  eq(await visible(p, '#night'), false, 'a second tap works too');
 });
 
 test('wall: phone-sized device that opened the wall link gets the phone layout', async (b) => {

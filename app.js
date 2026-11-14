@@ -2,7 +2,7 @@
  * Snappy by design: the last data is saved on the tablet and drawn instantly; Google is only
  * asked in the background, and every tap changes the screen first and saves afterwards. */
 'use strict';
-const VERSION = '1.0.0';
+const VERSION = '1.0.1';
 
 // ---------------------------------------------------------------- config & storage
 const qs = new URLSearchParams(location.search);
@@ -363,26 +363,28 @@ function mode(d = new Date()) {
   if (m >= 1320 || m < 345) return 'sleep';
   return 'dim';
 }
-let peekUntil = 0, lastMode = null;
+// At night the wall is black. A tap brings the normal home screen back; it stays while someone uses it
+// and goes black again after 90 s without a touch.
+let awakeUntil = 0, lastMode = null, awakeTimer;
+const awake = () => Date.now() < awakeUntil;
+function keepAwake() {
+  awakeUntil = Date.now() + 90000;
+  clearTimeout(awakeTimer); awakeTimer = setTimeout(applyMode, 90100);
+}
 function applyMode() {
   const m = PHONE() ? 'day' : mode();
   if (m !== lastMode) {
     lastMode = m;
     try { if (window.fully) window.fully.setBooleanSetting('motionDetection', m === 'day'); } catch { /* not in Fully */ }
-    if (m !== 'day') go('');
+    if (m !== 'day') { awakeUntil = 0; go(''); }
   }
   const n = $('#night');
-  if (m === 'day') { n.hidden = true; return; }
+  if (m === 'day' || awake()) { n.hidden = true; return; }
   if (saverOn) hideSaver();
+  modal = null; renderModal();
   n.hidden = false;
-  if (Date.now() < peekUntil) {
-    const d = new Date();
-    const tomorrow = ymd(addDays(d, mins(d) < 720 ? 0 : 1));
-    const first = itemsFor(tomorrow).filter((e) => !e.rec).slice(0, 2).map((e) => esc(short(e.t)) + (e.s ? ' ' + hm(e.s) : '')).join(' · ');
-    n.innerHTML = `<div class="nt num">${d.getHours()}${NB}h${NB}${pad(d.getMinutes())}</div><div class="nd">${DOWL[d.getDay()]} ${d.getDate()} ${MONL[d.getMonth()]}</div>${first ? `<div class="nn"><b>${mins(d) < 720 ? "Aujourd'hui" : 'Demain'}</b> · ${first}</div>` : ''}<div class="nf">S'éteint dans 15${NB}s</div>`;
-  } else n.innerHTML = '';
 }
-$('#night').addEventListener('click', () => { peekUntil = Date.now() + 15000; applyMode(); setTimeout(applyMode, 15100); });
+$('#night').addEventListener('click', () => { keepAwake(); go(''); applyMode(); });
 
 // ---------------------------------------------------------------- rule screensaver (wall only)
 // After 40 s without a touch on the home screen, all the house rules fill the screen.
@@ -416,6 +418,7 @@ const busy = () => !!modal || voice.state === 'rec' || (document.activeElement &
 
 let idleTimer;
 function touched() {
+  if (awake()) keepAwake(); // at night, every touch keeps the screen on another 90 s
   clearTimeout(idleTimer);
   // Back to the home screen after 90 s without a touch.
   idleTimer = setTimeout(() => { if (WALL() && voice.state !== 'rec') { modal = null; go(''); } }, 90000);
