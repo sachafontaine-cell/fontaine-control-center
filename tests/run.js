@@ -294,9 +294,9 @@ test('repas: dish picker filters by cuisine, picks, and "Pas encore décidé" cl
   await row.locator('[data-dish]').click();
   ok(await visible(p, '.picker'), 'picker open');
   await p.click('[data-pf="cui|Asiatique"]');
-  eq(await text(p, '#pcount'), '3 plats', 'three Asian dishes');
+  eq(await text(p, '#pcount'), '5 plats', 'five Asian dishes');
   await p.click('[data-pf="prot|Poisson"]');
-  eq(await text(p, '#pcount'), '1 plat', 'Asian and fish');
+  eq(await text(p, '#pcount'), '3 plats', 'Asian and fish');
   await p.click('[data-pclear]');
   await p.fill('#pq', 'kafta');
   eq(await count(p, '.picker .list [data-pick]'), 1, 'search finds one dish');
@@ -306,6 +306,27 @@ test('repas: dish picker filters by cuisine, picks, and "Pas encore décidé" cl
   await row.locator('[data-dish]').click();
   await p.click('[data-pnone]');
   ok((await row.innerText()).includes('À choisir'), 'dinner cleared');
+});
+
+test('repas: a dinner typed by hand, without a recipe', async (b) => {
+  const p = await open(b, { url: '?demo&wall#repas' });
+  const row = p.locator('.mrow:not(.past)').last();
+  await row.locator('[data-dish]').click();
+  await p.fill('#pq', 'kafta');
+  eq(await count(p, '[data-pickq]'), 0, 'no "write it" button for an existing recipe');
+  await p.fill('#pq', 'Pâtes au pesto de mamie');
+  ok(await visible(p, '[data-pickq]'), '"write it" button');
+  await p.press('#pq', 'Enter');
+  eq(await count(p, '.picker'), 0, 'picker closed');
+  ok((await row.innerText()).includes('Pâtes au pesto de mamie'), 'typed dinner shown');
+  eq(await row.locator('[data-czdish], a.mcart').count(), 0, 'no Cuisiner or Ingrédients for it');
+  ok(!(await p.evaluate(() => RCP().some((r) => r.t === 'Pâtes au pesto de mamie'))), 'not added to the recipes');
+  const ph = await open(b, { device: 'Pixel 7', storage: { me: 'Pa' }, url: '?demo#repas' });
+  const prow = ph.locator('.mrow:not(.past)').last();
+  await prow.locator('[data-dish]').click();
+  await ph.fill('#pq', 'Restaurant');
+  await ph.click('[data-pickq]');
+  ok((await prow.innerText()).includes('Restaurant'), 'works on a phone too');
 });
 
 test('repas: a kid cooking gets kid-friendly dishes first', async (b) => {

@@ -65,6 +65,8 @@ window.FCC_DEMO = function () {
       ['Frittatas', 'Sans viande', 'Italien', 'Four, Rapide', 0, 1], ['Homemade Pizza (Toppings Guide)', 'Autre', 'Italien', 'Four', 9, 1], ['Kafta', 'Bœuf', 'Libanais', 'Grill', 30],
       ['Salmon Fried Rice', 'Poisson', 'Asiatique', 'Riz, Rapide', 7], ['Shrimp Tacos', 'Poisson', 'Mexicain', 'Rapide', 0, 1], ['Thai Green Curry', 'Poulet', 'Asiatique', 'Mijoté', 25],
       ['Pad Kra Pao (Pork and Thai Basil Stir-fry)', 'Porc', 'Asiatique', 'Rapide', 40], ['Lentil Soup', 'Sans viande', 'Libanais', 'Soupe', 15], ['Hamburgers', 'Bœuf', 'Américain', 'Grill', 5, 1],
+      ['Swedish Meatballs (Shortcut)', 'Bœuf', 'Américain', 'Mijoté', 50], ['Cantonese Fried Noodles (Crispy Chow Mein)', 'Poisson', 'Asiatique', 'Nouilles', 35],
+      ['Cheesy Smoked Rib Quesadillas', 'Porc', 'Mexicain', 'Rapide', 33, 1], ['Tom Yum Noodle Soup with Shrimp, Coconut Cream & Lime', 'Poisson', 'Asiatique', 'Soupe, Nouilles', 28],
     ].map(([t, prot, cui, style, a, kid]) => ({ t, prot, cui, style: style.split(', '), kid: !!kid, salade: false, last: a ? ymd(day(-a)) : '', n: a ? 1 + (a % 4) : 0 })),
     rules: [
       { t: 'On parle avec respect', d: "Pas de cris, pas d'insultes." },

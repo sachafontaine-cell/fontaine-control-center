@@ -2,7 +2,7 @@
  * Snappy by design: the last data is saved on the tablet and drawn instantly; Google is only
  * asked in the background, and every tap changes the screen first and saves afterwards. */
 'use strict';
-const VERSION = '1.1.1';
+const VERSION = '1.2.0';
 
 // ---------------------------------------------------------------- config & storage
 const qs = new URLSearchParams(location.search);
@@ -626,7 +626,7 @@ function repasPage() {
     const cls = m.date < todayKey ? ' past' : m.date === todayKey ? ' today' : '';
     return `<div class="mrow${cls}"><span class="md">${DOW[d.getDay()]} ${d.getDate()}</span>${PHONE() && ME && m.date >= todayKey ? `<button class="mc tap" data-cook="${m.date}">${av(id)}${esc(m.cook)} <span class="hint">✎</span></button>` : `<span class="mc">${av(id)}${esc(m.cook)}</span>`}
       <button class="dish tap" data-dish="${m.date}|${esc(m.cook)}"><span>${m.dish ? esc(m.dish) : '<span style="color:var(--dim)">À choisir</span>'}</span>${m.salade ? '<span class="tag">+ salade</span>' : ''}</button>
-      <span class="macts">${m.dish && m.date >= todayKey ? `<a class="btn tap mcart" href="${chefLuc(m.dish)}">${I.food}Cuisiner</a>` : ''}${S.cozi && m.dish && m.date >= todayKey ? `<button class="btn tap mcart${sentFor(m.date, m.dish) ? ' sent' : ''}" data-czdish="${m.date}|${esc(m.dish)}">${I.cart}Ingrédients${sentFor(m.date, m.dish) ? ' ✓' : ''}</button>` : `<span class="hint">${m.date === todayKey && !m.dish ? 'Ce soir' : ''}</span>`}</span></div>`;
+      <span class="macts">${isRecipe(m.dish) && m.date >= todayKey ? `<a class="btn tap mcart" href="${chefLuc(m.dish)}">${I.food}Cuisiner</a>` : ''}${S.cozi && isRecipe(m.dish) && m.date >= todayKey ? `<button class="btn tap mcart${sentFor(m.date, m.dish) ? ' sent' : ''}" data-czdish="${m.date}|${esc(m.dish)}">${I.cart}Ingrédients${sentFor(m.date, m.dish) ? ' ✓' : ''}</button>` : `<span class="hint">${m.date === todayKey && !m.dish ? 'Ce soir' : ''}</span>`}</span></div>`;
   }).join('');
   return `<div class="page">${topBar('Repas', '', tabs(1))}<div class="scroll" style="gap:8px">${rows}<div class="hint">Le cuisinier touche son plat pour le changer.</div></div></div>`;
 }
@@ -855,6 +855,12 @@ MODALS.cozi = () => {
     <div class="czf"><a class="hint" href="${COZI()}" target="_blank" rel="noopener">Ouvrir Cozi ›</a><button class="btn gold tap" data-czsend ${n ? '' : 'disabled'}>${cz.sending ? 'Envoi…' : was ? (cz.confirm ? `Confirmer : renvoyer ${n} article${n > 1 ? 's' : ''}` : `Renvoyer ${n} article${n > 1 ? 's' : ''}…`) : `Envoyer ${n} article${n > 1 ? 's' : ''} à Cozi`}</button></div></section></div>`;
 };
 document.addEventListener('input', (e) => { if (e.target.id === 'czq' && cz) cz.q = e.target.value; });
+document.addEventListener('keydown', (e) => {
+  if (e.target.id !== 'pq' || e.key !== 'Enter') return;
+  e.preventDefault();
+  const b = $('.picker .list [data-pickq]') || ($('.picker .list').querySelectorAll('[data-pick]').length === 1 && $('.picker .list [data-pick]'));
+  if (b) b.click();
+});
 document.addEventListener('keydown', (e) => { if (e.target.id === 'czq' && e.key === 'Enter') { e.preventDefault(); czAddTyped(); } });
 
 // A parent's phone: who makes dinner that day.
@@ -891,11 +897,15 @@ function pickFiltered() {
     && (!f.more.includes('kid') || r.kid) && (!f.more.includes('salade') || r.salade)
     && (!f.more.includes('old') || !r.last || ago(r.last) >= 30));
 }
+// A dinner typed by hand: just a name, no recipe behind it (one-off, not added to the recipe list).
+const typed = () => { const q = pick.q.trim().replace(/\s+/g, ' ').slice(0, 80); return q && !RCP().some((r) => fold(r.t) === fold(q)) ? q : ''; };
+const isRecipe = (dish) => !!dish && RCP().some((r) => fold(r.t) === fold(dish));
 function pickList() {
-  const l = pickFiltered(), A = (r) => (r.last ? ago(r.last) : 99999);
+  const l = pickFiltered(), A = (r) => (r.last ? ago(r.last) : 99999), q = typed();
+  const own = q ? `<button class="tap own" data-pickq><span>✎ « ${esc(q)} »</span><small>Écrire ce plat à la main, sans recette</small></button>` : '';
   l.sort(pick.sort === 'az' ? (a, b) => a.t.localeCompare(b.t) : pick.sort === 'fav' ? (a, b) => (b.n || 0) - (a.n || 0) || a.t.localeCompare(b.t) : (a, b) => A(b) - A(a) || a.t.localeCompare(b.t));
-  if (!l.length) return '<div class="none">Aucun plat — enlevez un filtre</div>';
-  return l.map((r) => {
+  if (!l.length) return own + (own ? '' : '<div class="none">Aucun plat — enlevez un filtre</div>');
+  return own + l.map((r) => {
     const a = r.last ? ago(r.last) : null;
     const when = r.last === undefined ? '' : a == null ? 'jamais fait' : a === 0 ? "fait aujourd'hui" : `fait il y a ${a}${NB}j`;
     const meta = [r.cui, r.prot, when, r.salade ? '+ salade' : ''].filter(Boolean).join(' · ');
@@ -962,7 +972,7 @@ function phoneHome() {
     <header class="phead"><div><h1 class="pgreet">${d.getHours() >= 17 ? 'Bonsoir' : 'Bonjour'} ${esc(P[ME].n)}</h1><div class="hint">${DOWL[d.getDay()]} ${d.getDate()} ${MONL[d.getMonth()]}</div></div><button class="tap pme" data-switch aria-label="Changer de personne">${av(ME, 40)}</button></header>
     ${DEMO && !qs.has('demo') ? '<section class="card panel"><b>Famille d\'exemple</b><div class="hint">Ouvrez une fois votre lien famille (…/?k=…) dans ce navigateur pour voir vos vraies données.</div></section>' : ''}
     ${installCard()}
-    ${m && m.dish ? `<a class="card panel prow tap" href="${chefLuc(m.dish)}"><span>${I.food}<b>Cuisiner ce soir</b> avec Chef Luc</span><span class="hint">›</span></a>` : ''}
+    ${m && isRecipe(m.dish) ? `<a class="card panel prow tap" href="${chefLuc(m.dish)}"><span>${I.food}<b>Cuisiner ce soir</b> avec Chef Luc</span><span class="hint">›</span></a>` : ''}
     <a class="card panel pdin tap" href="#repas"><span class="label">Ce soir</span><span class="pdish">${m && m.dish ? esc(m.dish) : 'À choisir'}${m && m.salade ? ' <span class="tag">+ salade</span>' : ''}</span>${m ? `<span class="hint"><span class="dot" style="background:${P[cook].c}"></span>${esc(m.cook)} cuisine</span>` : ''}</a>
     ${S.vote ? `<a class="card panel prow pvote tap" href="#votes"><span>${voted ? 'Votes de la semaine prochaine · fait ✓' : '<b>Votez</b> pour les repas de la semaine prochaine'}</span><span class="hint">ferme ${DOW[new Date(S.vote.closes).getDay()]} ${hm(S.vote.closes)} ›</span></a>` : ''}
     <section class="card panel"><div class="label">Au programme</div>${days || '<div class="none">Rien cette semaine</div>'}<a class="hint more2" href="#cal">Tout l'agenda ›</a></section>
@@ -977,7 +987,7 @@ function phoneHome() {
 
 // ---------------------------------------------------------------- taps (one listener for everything)
 document.addEventListener('click', (ev) => {
-  const t = ev.target.closest('[data-cook],[data-setcook],[data-cz],[data-czdish],[data-czwho],[data-czstore],[data-czon],[data-czdel],[data-czadd],[data-czsend],[data-pnone],[data-install],[data-noinstall],[data-cwho],[data-cclear],[data-cozi],[data-pf],[data-pclear],[data-psort],[data-prand],[data-day],[data-task],[data-seen],[data-ev],[data-close],[data-dish],[data-pick],[data-voter],[data-vote],[data-update],[data-me],[data-switch],[data-to],[data-send],[data-retry]');
+  const t = ev.target.closest('[data-pickq],[data-cook],[data-setcook],[data-cz],[data-czdish],[data-czwho],[data-czstore],[data-czon],[data-czdel],[data-czadd],[data-czsend],[data-pnone],[data-install],[data-noinstall],[data-cwho],[data-cclear],[data-cozi],[data-pf],[data-pclear],[data-psort],[data-prand],[data-day],[data-task],[data-seen],[data-ev],[data-close],[data-dish],[data-pick],[data-voter],[data-vote],[data-update],[data-me],[data-switch],[data-to],[data-send],[data-retry]');
   if (!t) return;
   const ds = t.dataset;
   if (ds.cook) { openModal({ kind: 'cook', date: ds.cook }); return; }
@@ -1011,6 +1021,7 @@ document.addEventListener('click', (ev) => {
   else if (ds.psort) { pick.sort = ds.psort; renderModal(); }
   else if ('prand' in ds) { const l = pickFiltered(); if (l.length) { pick.hi = l[Math.floor(Math.random() * l.length)].t; renderModal(); const el = $('.picker .hi'); if (el) el.scrollIntoView({ block: 'center' }); } }
   else if (ds.pick) { act({ a: 'dish', date: modal.date, cook: modal.cook, dish: ds.pick }); modal = null; render(); }
+  else if ('pickq' in ds) { const q = typed(); if (q) { act({ a: 'dish', date: modal.date, cook: modal.cook, dish: q }); modal = null; render(); } }
   else if (ds.voter) { voter = ds.voter; flash = ''; clearTimeout(voterTimer); voterTimer = setTimeout(() => { voter = null; render(); }, 120000); render(); }
   else if (ds.vote) {
     if (!voter) { flash = "Touchez d'abord votre nom"; render(); return; }
