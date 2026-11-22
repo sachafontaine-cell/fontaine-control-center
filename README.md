@@ -14,17 +14,17 @@ The app is then at `https://sachafontaine-cell.github.io/fontaine-control-center
 
 ### 2. Google script (10 min) — signed in with the account that sees the family calendars
 1. Go to <https://script.google.com> → **New project**. Name it "Fontaine Control Center".
-2. Replace the editor's content with the private `Code.gs` file (kept out of this repository on purpose).
+2. Replace the editor's content with the **loader** ("Fontaine Control Center — Chargeur (à coller une fois).txt") and put the newest **"Fontaine Control Center — Code.gs vX.Y.Z.txt"** in the same Drive folder as the project (both private, kept out of this repository on purpose). Run **checkLoader** once: the log must say *OK : la version … tourne*.
 3. **Project Settings** (gear) → time zone **(GMT-08:00) Los Angeles**.
-4. Back in the editor, pick **setup** in the function list and click **Run**. Approve the permissions (Calendar, Sheets, Slides, Gmail send, Maps).
+4. Back in the editor, pick **setup** in the function list and click **Run**. Approve the permissions (Calendar, Sheets, Slides, Drive, Gmail send, external requests, Maps).
 5. Open **Execution log**: copy the **KEY** line. setup() also created a Sheet "Fontaine Control Center — données" in your Drive.
 6. **Deploy → New deployment → Web app**. Execute as: **Me**. Who has access: **Anyone**. Deploy and copy the **Web app URL** (ends in `/exec`).
 
 ### 2b. Cozi groceries (optional, 2 min)
 In the Apps Script editor: **Project Settings → Script Properties → Add**: `COZI_USER` = your Cozi login email, `COZI_PASS` = your Cozi password. They stay in Google, never in this repository. Then pick **coziTest** in the function list and **Run** (approve the new permissions): the log lists your Cozi shopping lists.
-Three Cozi shopping lists: **Aldi**, **Costco**, **Balboa/99Ranch/TJ** (the names must match). "Auto" sends specialty ingredients to Balboa/99Ranch/TJ and everything else to Aldi. Kids' items get their name in brackets. Cozi has no official API: if Cozi changes its service, adding stops working until the script is updated (the Courses button still opens Cozi).
+Three Cozi shopping lists: **Aldi**, **Costco**, **Balboa/99Ranch/TJ** (the names must match). "Auto" sends specialty ingredients to Balboa/99Ranch/TJ and everything else to Aldi. Kids' items get their name in brackets. Cozi has no official API: if Cozi changes its service, adding stops working until the script is updated (the app then says "Pas envoyé"; Cozi itself still works).
 
-**Code.gs v0.3.5 (Chef Luc):** adds the coming two weeks of dinners and the "Envoyés" tab (dinners already sent to Cozi) for Chef Luc. The tab is created by itself the first time.
+The script also gives Chef Luc the coming two weeks of dinners and keeps an "Envoyés" tab (dinners already sent to Cozi, from either app). The tab is created by itself the first time.
 
 **Script updates are automatic (loader).** The Apps Script project holds only a small *loader* (private, pasted once: "Fontaine Control Center — Chargeur (à coller une fois).txt" in the script's Drive folder). It runs the newest **"Fontaine Control Center — Code.gs vX.Y.Z.txt"** in that same folder.
 - **To release a new script version:** upload the new file to that folder with a higher version number. It is live within 5 minutes, with no pasting and no redeploying. Never paste a new `Code.gs` into the editor.
@@ -46,16 +46,19 @@ https://sachafontaine-cell.github.io/fontaine-control-center/?k=KEY
 
 ### 4. Tablet (Fully Kiosk Browser, PLUS license)
 - **Start URL:** the family link above.
-- **Kiosk mode:** on.
+- **Kiosk mode:** on, with a **Kiosk Exit PIN**. To get out: swipe from the left edge (or tap the top-left corner) and enter the PIN.
+- **Full screen:** turn off **Show Status Bar** and **Show Navigation Bar** (Toolbars and Appearance). Use the search in Fully's settings if a name differs.
 - **Screen off timer:** 60 s.
 - **Motion detection** (front camera): on — the app turns it off 20:30–7:00 by itself.
-- **Scheduled sleep / wake up:** sleep 22:00, wake 5:45.
+- **Scheduled sleep / wake up:** sleep 22:00, wake 5:45 (one rule per day, or "every day"). After 22:00 the power button wakes it.
 - **Web content settings:** enable microphone access (voice notes).
 - **Kiosk mode → Kiosk app whitelist:** add `com.cozi.androidfree`, so the **Épicerie** button can open the Cozi app (Android's back button returns to the wall).
 - **Advanced web settings:** enable the JavaScript interface (lets the app switch motion detection at night).
 - **Screen brightness:** low (less heat).
 - **House rules screensaver:** after 40 s without a touch on the home screen, all the house rules fill the screen. Keep the screen-off timer above 40 s so the kids get to see them; when the screen wakes, they stay 8 s, or until someone touches the screen.
-- Only the wall tablet goes dark at night and returns to the home screen after 90 s (it is recognized by Fully Kiosk). Phones and computers never do. To try the wall behavior in a normal browser, add `&wall` to the link once (`&wall=0` turns it off). Phones are never treated as the wall.
+- **Night (20:30–7:00):** the wall is black; a tap brings the normal home screen back, which goes black again 90 s after the last touch. By day, any page returns to the home screen after 90 s.
+- Only the wall tablet does this (it is recognized by Fully Kiosk, or by the `&wall` link). Phones and computers never do. To try the wall behavior in a normal browser, add `&wall` to the link once (`&wall=0` turns it off). Phones are never treated as the wall.
+- Android Settings → Display → **Display size: smallest**, so the wall gets the room it is designed for (a compact layout covers smaller screens).
 - Settings → Battery: turn on a charge limit if the tablet offers one.
 
 ### 5. Phone app + shortcuts (2 min per phone, Android + Chrome)
@@ -86,4 +89,4 @@ Weeks run **Sunday to Saturday** everywhere (calendar, chores, dinners). Votes c
 - `sw.js` — keeps the app on the tablet so it opens instantly and offline. **Release with `./bump.sh X.Y.Z`** (sets the version in `app.js`, `sw.js` and here, and checks no file got emptied).
 - `demo.js` — sample data for `?demo`.
 - `tests/run.js` — end-to-end tests: wall tablet (several screen sizes, day and night, idle timers, screensaver), phones (light and dark), computer, the family link against a fake Google script (wrong key, offline, old data), and the release files. Run `node tests/run.js` (needs Node and Playwright); `node tests/run.js phone` runs only the phone tests. Run them before every release.
-- `Code.gs` (private, not in this repository) — Google side: calendars, sheets, votes, messages, voice notes by email. Released as versioned files in the script's Drive folder and run by the loader (see step 2).
+- `Code.gs` (private, not in this repository) — Google side: calendars, sheets, votes, messages, voice notes by email, Cozi, Chef Luc. Released as versioned files in the script's Drive folder and run by the loader (see step 2). Its own tests ("script tests (gs.test.js).txt") are kept privately in the same folder: they hold family details.
