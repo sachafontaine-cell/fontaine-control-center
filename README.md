@@ -26,9 +26,14 @@ Three Cozi shopping lists: **Aldi**, **Costco**, **Balboa/99Ranch/TJ** (the name
 
 **Code.gs v0.3.5 (Chef Luc):** adds the coming two weeks of dinners and the "Envoyés" tab (dinners already sent to Cozi) for Chef Luc. The tab is created by itself the first time.
 
-**Updates install themselves.** Once (from script v1.3.0): turn on the **Google Apps Script API** at <https://script.google.com/home/usersettings>, show and replace `appsscript.json` (Project Settings → "Show appsscript.json manifest file in editor"), paste `Code.gs`, then run **setupAutoUpdate** and allow the new permissions. From then on the script checks every hour for a newer **`Fontaine Control Center — Code.gs vX.Y.Z.txt`** in its own Drive folder, owned by you, installs it, saves it as a new version and switches the web app to it (same address). If an update can't install, you get one email and the script keeps running the previous version. The `v… ↻` button on any device shows the script's version too.
+**Script updates are automatic (loader).** The Apps Script project holds only a small *loader* (private, pasted once: "Fontaine Control Center — Chargeur (à coller une fois).txt" in the script's Drive folder). It runs the newest **"Fontaine Control Center — Code.gs vX.Y.Z.txt"** in that same folder.
+- **To release a new script version:** upload the new file to that folder with a higher version number. It is live within 5 minutes, with no pasting and no redeploying. Never paste a new `Code.gs` into the editor.
+- Only files owned by the family account that nobody else can edit are run. A version that does not load is skipped and the previous one keeps running.
+- **To roll back:** trash the newest file.
+- **To see what runs:** in the editor, pick **checkLoader** → **Run**, or tap `v… ↻` in the app (it shows « script vX.Y.Z »), or look at Chef Luc → Réglages → *Script Google*.
+- A script change that needs a **new Google permission** or a **new trigger function** needs the loader updated once (rare): add the service to `permissions_()` or a one-line entry point, paste the loader, run **checkLoader**, then **Deploy → Manage deployments → ✎ → New version**.
 
-To publish a new script version: raise `SCRIPT_VERSION` in the file, keep `autoUpdate()` in it, and save it to that folder under that name.
+**Installing the loader (once):** open the loader file in Drive, copy everything, paste it over `Code.gs` in the editor, save. Pick **checkLoader** → **Run** (approve if asked). The log must say *OK : la version … tourne*. Only then **Deploy → Manage deployments → ✎ (edit) → Version: New version → Deploy**. The address stays the same, so nothing changes on the tablet or phones. If the log shows an error, don't deploy: press undo (or paste the newest `Code.gs` file back) and nothing has changed.
 
 ### 3. The family link
 Build this link (keep it private — it opens the family data):
@@ -81,4 +86,4 @@ Weeks run **Sunday to Saturday** everywhere (calendar, chores, dinners). Votes c
 - `sw.js` — keeps the app on the tablet so it opens instantly and offline. **Release with `./bump.sh X.Y.Z`** (sets the version in `app.js`, `sw.js` and here, and checks no file got emptied).
 - `demo.js` — sample data for `?demo`.
 - `tests/run.js` — end-to-end tests: wall tablet (several screen sizes, day and night, idle timers, screensaver), phones (light and dark), computer, the family link against a fake Google script (wrong key, offline, old data), and the release files. Run `node tests/run.js` (needs Node and Playwright); `node tests/run.js phone` runs only the phone tests. Run them before every release.
-- `Code.gs` (private, not in this repository) — Google side: calendars, sheets, votes, messages, voice notes by email.
+- `Code.gs` (private, not in this repository) — Google side: calendars, sheets, votes, messages, voice notes by email. Released as versioned files in the script's Drive folder and run by the loader (see step 2).
