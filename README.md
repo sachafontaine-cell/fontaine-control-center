@@ -4,7 +4,7 @@ Family wall tablet (Android, Fully Kiosk Browser). Plain HTML/CSS/JS on GitHub P
 **No family data lives in this public repository**: names, events, contacts and settings come from a private Google Apps Script that is not stored here. `?demo` shows a made-up family.
 
 - **See it now with sample data:** https://sachafontaine-cell.github.io/fontaine-control-center/?demo
-- **Version / update:** the small `v1.2.1 ↻` at the bottom right checks for an update right away. The tablet also checks by itself when someone walks up and every 30 minutes, and applies new versions on the home screen.
+- **Version / update:** the small `v1.3.0 ↻` at the bottom right checks for an update right away. The tablet also checks by itself when someone walks up and every 30 minutes, and applies new versions on the home screen.
 
 ## One-time setup
 
@@ -26,7 +26,9 @@ Three Cozi shopping lists: **Aldi**, **Costco**, **Balboa/99Ranch/TJ** (the name
 
 **Code.gs v0.3.5 (Chef Luc):** adds the coming two weeks of dinners and the "Envoyés" tab (dinners already sent to Cozi) for Chef Luc. The tab is created by itself the first time.
 
-**When `Code.gs` changes later:** paste the new file over the old one, save, then **Deploy → Manage deployments → ✎ (edit) → Version: New version → Deploy**. The address stays the same, so nothing changes on the tablet or phones.
+**Updates install themselves.** Once (from script v1.3.0): turn on the **Google Apps Script API** at <https://script.google.com/home/usersettings>, show and replace `appsscript.json` (Project Settings → "Show appsscript.json manifest file in editor"), paste `Code.gs`, then run **setupAutoUpdate** and allow the new permissions. From then on the script checks every hour for a newer **`Fontaine Control Center — Code.gs vX.Y.Z.txt`** in its own Drive folder, owned by you, installs it, saves it as a new version and switches the web app to it (same address). If an update can't install, you get one email and the script keeps running the previous version. The `v… ↻` button on any device shows the script's version too.
+
+To publish a new script version: raise `SCRIPT_VERSION` in the file, keep `autoUpdate()` in it, and save it to that folder under that name.
 
 ### 3. The family link
 Build this link (keep it private — it opens the family data):
