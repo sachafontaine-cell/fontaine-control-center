@@ -75,7 +75,7 @@ async function open(browser, o = {}) {
 }
 const run = async (page, ms) => { await page.clock.runFor(ms); await page.waitForTimeout(30); };
 const count = (page, sel) => page.locator(sel).count();
-const text = (page, sel) => page.locator(sel).first().innerText();
+const text = async (page, sel) => (await page.locator(sel).first().innerText()).replace(/\u00a0/g, ' ');
 const visible = (page, sel) => page.locator(sel).first().isVisible();
 
 // No horizontal page scroll, and the listed elements do not overlap each other.
@@ -382,6 +382,23 @@ test('courses: typed items go to Cozi, kept when switching store', async (b) => 
   await p.click('[data-czsend]');
   await run(p, 1000);
   ok((await text(p, '#toast')).includes('Costco'), 'sent to Costco');
+});
+
+test('internet: live status under the clock, read-only week page', async (b) => {
+  const p = await open(b, { url: '?demo&wall' }); // Friday 10:00
+  ok((await text(p, '.netp')).includes('Internet ouvert · coupé demain à 1 h 30'), 'open, next cut tomorrow 1:30: ' + await text(p, '.netp'));
+  await p.click('.netp');
+  await p.waitForSelector('.netnow');
+  eq(await count(p, '.netd'), 7, 'a week');
+  ok((await text(p, '.netd .nd')).toLowerCase().startsWith('dimanche'), 'from Sunday');
+  eq(await p.locator('.netd').nth(6).locator('.nbk').count(), 4, 'Saturday: 4 blocks');
+  eq(await count(p, '.netd.today'), 1, 'today outlined');
+  eq(await count(p, '.page input, .page button:not(.back), .netd a'), 0, 'nothing to change');
+  const s = await open(b, { url: '?demo&wall', time: '2026-11-14T09:00:00-08:00' }); // Saturday 9:00
+  ok((await text(s, '.netp')).includes('Internet coupé · revient à 10 h 15'), 'blocked until 10:15');
+  ok(await s.locator('.netp.off').count(), 'shown in red');
+  const n = await open(b, { url: '?demo&wall', time: '2026-11-14T15:30:00-08:00' }); // between two blocks
+  ok((await text(n, '.netp')).includes('coupé à 15 h 45'), 'short break: back at 15:45');
 });
 
 test('tâches: week grid starts on Sunday, rewards listed', async (b) => {

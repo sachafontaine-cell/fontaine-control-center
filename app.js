@@ -2,7 +2,7 @@
  * Snappy by design: the last data is saved on the tablet and drawn instantly; Google is only
  * asked in the background, and every tap changes the screen first and saves afterwards. */
 'use strict';
-const VERSION = '1.3.0';
+const VERSION = '1.4.0';
 
 // ---------------------------------------------------------------- config & storage
 const qs = new URLSearchParams(location.search);
@@ -41,7 +41,7 @@ function setPeople() {
 // Fill in anything missing, so one broken part of the Google data never blanks the screen.
 function normalize(s) {
   if (!s || typeof s !== 'object' || s.error) return null;
-  ['events', 'school', 'messages', 'menu', 'recipes', 'rules', 'contacts', 'weather', 'sent'].forEach((k) => { if (!Array.isArray(s[k])) s[k] = []; });
+  ['events', 'school', 'messages', 'menu', 'recipes', 'rules', 'contacts', 'weather', 'sent', 'internet'].forEach((k) => { if (!Array.isArray(s[k])) s[k] = []; });
   s.chores = Object.assign({ tasks: [], rewards: [], points: {}, week: {}, done: [] }, s.chores || {});
   if (!s.vote || !Array.isArray(s.vote.groups)) s.vote = null; else s.vote.votes = s.vote.votes || {};
   s.events = s.events.filter((e) => e && e.t && (e.s || e.sd));
@@ -439,7 +439,7 @@ function render() {
   const r = route.split('/')[0];
   // Home-screen shortcut "Épicerie": opens the Cozi sheet straight away.
   if (r === 'courses') { history.replaceState(null, '', location.pathname + location.search); route = ''; if (!S.cozi) { location.href = COZI(); return; } render(); openCozi(''); return; }
-  const view = { '': PHONE() ? phoneHome : home, cal: calPage, repas: repasPage, votes: votesPage, taches: tachesPage, regles: reglesPage, contacts: contactsPage, voix: voicePage }[r] || home;
+  const view = { '': PHONE() ? phoneHome : home, cal: calPage, repas: repasPage, votes: votesPage, taches: tachesPage, regles: reglesPage, internet: internetPage, contacts: contactsPage, voix: voicePage }[r] || home;
   document.documentElement.classList.toggle('ph', PHONE());
   $('#app').innerHTML = view() + (PHONE() && ME && r !== 'voix' ? phoneTabs(r) : '');
   renderModal();
@@ -456,7 +456,7 @@ function home() {
   return `<div class="page home">
   <header class="head">
     <div class="clock"><div class="t num">${d.getHours()}${NB}h${NB}${pad(d.getMinutes())}</div>
-      <div>${evening ? '<div class="tag">VUE DE DEMAIN</div>' : ''}<div class="d1">${DOWL[focusDay.getDay()]}</div><div class="d2">${focusDay.getDate()} ${MONL[focusDay.getMonth()]}</div></div></div>
+      <div>${evening ? '<div class="tag">VUE DE DEMAIN</div>' : ''}<div class="d1">${DOWL[focusDay.getDay()]}</div><div class="d2">${focusDay.getDate()} ${MONL[focusDay.getMonth()]}</div>${netPill()}</div></div>
     <div class="wx">${wxCards(focus, evening)}</div>
   </header>
   <section class="cal" aria-label="Calendrier, 2 semaines">
@@ -681,6 +681,51 @@ function tachesPage() {
 }
 
 // ---------------------------------------------------------------- règles & contacts
+// ---------------------------------------------------------------- internet blocks (read only)
+// Copied from Google Home into the "Internet" tab; the wall only shows them. Times are "HH:MM";
+// days are 0 = Sunday … 6 = Saturday; a block ending before it starts runs past midnight.
+const minOf = (t) => { const [h, m] = String(t).split(':').map(Number); return h * 60 + (m || 0); };
+const hmOf = (t) => { const [h, m] = String(t).split(':').map(Number); return m ? `${h}${NB}h${NB}${pad(m)}` : `${h}${NB}h`; };
+function netRanges(now) { // merged blocked periods from yesterday to a week ahead, in ms
+  const day0 = parse(ymd(new Date(now))), out = [];
+  for (let i = -1; i <= 7; i++) {
+    const d = addDays(day0, i);
+    (S.internet || []).forEach((b) => {
+      if (!(b.days || []).includes(d.getDay())) return;
+      const a = d.getTime() + minOf(b.from) * 60000;
+      let e = d.getTime() + minOf(b.to) * 60000; if (e <= a) e += 864e5;
+      out.push({ a, e });
+    });
+  }
+  out.sort((x, y) => x.a - y.a);
+  return out.reduce((m, r) => { const l = m[m.length - 1]; if (l && r.a <= l.e) l.e = Math.max(l.e, r.e); else m.push({ ...r }); return m; }, []);
+}
+function whenText(ms, now) {
+  const d = new Date(ms), days = Math.round((parse(ymd(d)) - parse(ymd(new Date(now)))) / 864e5);
+  return (days === 0 ? 'à ' : days === 1 ? 'demain à ' : `${DOWL[d.getDay()]} à `) + hm(ms);
+}
+function netStatus(now = Date.now()) {
+  const r = netRanges(now), cur = r.find((x) => x.a <= now && now < x.e), next = r.find((x) => x.a > now);
+  return cur ? { off: true, text: `Internet coupé · revient ${whenText(cur.e, now)}` } : { off: false, text: next ? `Internet ouvert · coupé ${whenText(next.a, now)}` : 'Internet ouvert' };
+}
+const WIFI = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M2.5 9a14 14 0 0 1 19 0M5.5 12.5a9.5 9.5 0 0 1 13 0M8.8 16a5 5 0 0 1 6.4 0"/><circle cx="12" cy="19.5" r="1" fill="currentColor"/></svg>';
+function netPill() {
+  if (!S.internet.length) return '';
+  const st = netStatus();
+  return `<a class="netp tap${st.off ? ' off' : ''}" href="#internet">${WIFI}<span>${st.text}</span></a>`;
+}
+function internetPage() {
+  const now = Date.now(), st = netStatus(now), start = sunday(new Date(now)), todayKey = ymd(new Date(now));
+  const days = [0, 1, 2, 3, 4, 5, 6].map((i) => {
+    const d = addDays(start, i), list = (S.internet || []).filter((b) => (b.days || []).includes(d.getDay())).sort((a, b) => minOf(a.from) - minOf(b.from));
+    return `<div class="netd panel${ymd(d) === todayKey ? ' today' : ''}"><span class="nd">${DOWL[d.getDay()]}${ymd(d) === todayKey ? ' · aujourd’hui' : ''}</span><span class="nb">${list.length ? list.map((b) => `<span class="nbk">${hmOf(b.from)} – ${hmOf(b.to)}${b.name ? ` <small>${esc(b.name)}</small>` : ''}</span>`).join('') : '<span class="hint">Pas de coupure</span>'}</span></div>`;
+  }).join('');
+  return `<div class="page">${topBar('Internet', 'Les heures où l’internet des enfants est coupé')}
+    <div class="scroll"><div class="netnow panel${st.off ? ' off' : ''}">${WIFI.replace(/16/g, '34')}<span>${st.text}</span></div>
+    ${S.internet.length ? days : '<div class="none">Aucune coupure enregistrée.</div>'}
+    <div class="hint">Seuls Papa et Maman changent ces heures, dans Google Home.</div></div></div>`;
+}
+
 function reglesPage() {
   const list = (S.rules || []).map((r, i) => `<div class="rl panel"><span class="n">${i + 1}</span><span style="display:flex;flex-direction:column;gap:3px"><span class="rt">${esc(r.t)}</span><span class="rd">${esc(r.d)}</span></span></div>`).join('');
   return `<div class="page">${topBar('Règles de la maison', 'Pour une famille en harmonie')}<div class="rules">${list}</div></div>`;
@@ -981,7 +1026,7 @@ function phoneHome() {
       <input id="msg" type="text" maxlength="200" placeholder="Ex. : Piano annulé ce soir" autocomplete="off" value="${esc(draft)}">
       <div class="seg">${['Tous', P.M.n, P.F.n].map((t) => `<button class="tap${phoneTo === t ? ' on' : ''}" data-to="${t}">${t}</button>`).join('')}</div>
       <button class="btn gold tap" data-send style="justify-content:center">Envoyer au mur</button></section>
-    <div class="plinks"><a href="#regles">Règles</a><span>·</span><a href="#contacts">Contacts</a><span>·</span><button class="ver tap" data-update>v${VERSION}${DEMO ? ' · démo' : ''} ↻</button></div>
+    <div class="plinks"><a href="#regles">Règles</a><span>·</span>${S.internet.length ? '<a href="#internet">Internet</a><span>·</span>' : ''}<a href="#contacts">Contacts</a><span>·</span><button class="ver tap" data-update>v${VERSION}${DEMO ? ' · démo' : ''} ↻</button></div>
   </div>`;
 }
 

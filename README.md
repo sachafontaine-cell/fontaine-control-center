@@ -4,7 +4,7 @@ Family wall tablet (Android, Fully Kiosk Browser). Plain HTML/CSS/JS on GitHub P
 **No family data lives in this public repository**: names, events, contacts and settings come from a private Google Apps Script that is not stored here. `?demo` shows a made-up family.
 
 - **See it now with sample data:** https://sachafontaine-cell.github.io/fontaine-control-center/?demo
-- **Version / update:** the small `v1.3.0 ↻` at the bottom right checks for an update right away. The tablet also checks by itself when someone walks up and every 30 minutes, and applies new versions on the home screen.
+- **Version / update:** the small `v1.4.0 ↻` at the bottom right checks for an update right away. The tablet also checks by itself when someone walks up and every 30 minutes, and applies new versions on the home screen.
 
 ## One-time setup
 
@@ -79,6 +79,7 @@ If an icon ever shows the made-up family ("Famille d'exemple" card), open the fa
 | School names on the weather tiles | Réglages → the two "Météo …" rows (the first part is the name shown) |
 | Dinner | Repas screen (votes for next week; the cook swaps this week's dish, or types any dinner by hand in the dish search; a parent's phone can change who cooks a day) |
 | Messages to the kids | the family link on a parent's phone |
+| Kids' internet blocks (shown, not changed, on the wall) | Google Home → Wi-Fi → Family → Schedules, **and** the same hours in the data sheet's **Internet** tab (Google Home has no way for other apps to read them) |
 | Groceries | Cozi — added from the Épicerie button, a dinner's Ingrédients button, or Chef Luc's weekly list (ingredients come from the newest Chef Luc recipe file in Drive). A dinner already sent from either app shows **Ingrédients ✓** and asks before sending again |
 | Cooking a dinner | **Cuisiner** on a dinner (Repas) or **Cuisiner ce soir** (phone) opens the recipe in [Chef Luc](https://sachafontaine-cell.github.io/Chef-Luc/) |
 
